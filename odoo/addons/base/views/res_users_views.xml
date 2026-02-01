@@ -81,6 +81,10 @@
                                     <i class="fa fa-fw me-1 fa-building text-primary" title="Company"/>
                                     <field name="company_id" class="w-100" context="{'user_preference': 0}" placeholder="Company"/>
                                 </div>
+                                <div class="d-flex align-items-baseline w-100" groups="base.group_multi_company">
+                                    <i class="fa fa-fw me-1 fa-building-o text-primary" title="Tenant"/>
+                                    <field name="tenant_id" class="w-100" context="{'user_preference': 0}" placeholder="Tenant"/>
+                                </div>
                             </div>
                         </div>
                         <group name="access_groups" invisible="id &gt; 0">
@@ -160,6 +164,8 @@
                                     <field name="role" invisible="share" widget="radio" options="{'horizontal': true}"/>
                                     <field string="Companies" name="company_ids" invisible="companies_count &lt;= 1" widget="many2many_tags" options="{'no_create': True, 'color_field': 'color'}"/>
                                     <field string="Default Company" name="company_id" invisible="companies_count &lt;= 1" context="{'user_preference': 0}"/>
+                                    <field string="Tenants" name="tenant_ids" invisible="tenants_count &lt;= 1" widget="many2many_tags" options="{'no_create': True}"/>
+                                    <field string="Default Tenant" name="tenant_id" invisible="tenants_count &lt;= 1" context="{'user_preference': 0}"/>
                                 </group>
                                 <field name="group_ids" widget="res_user_group_ids" nolabel="1" colspan="2" groups="base.group_no_one"/>
                                 <field name="group_ids" widget="res_user_group_ids" nolabel="1" colspan="2" groups="!base.group_no_one" invisible="share"/>
@@ -255,6 +261,7 @@
                     <field name="lang" optional="hide"/>
                     <field name="login_date" readonly="1" optional="hide"/>
                     <field name="role" widget="badge"/>
+                    <field name="tenant_id" optional="hide"/>
                 </list>
             </field>
         </record>
@@ -300,6 +307,7 @@
                 <search string="Users">
                     <field name="name" filter_domain="['|', '|', ('name','ilike',self), ('login','ilike',self), ('email','ilike',self)]" string="User"/>
                     <field name="company_ids" string="Company" groups="base.group_multi_company"/>
+                    <field name="tenant_ids" string="Tenant" groups="base.group_multi_company"/>
                     <field name="share"/>
                     <filter name="filter_no_share" string="Internal Users" domain="[('share', '=', False)]"/>
                     <filter name="filter_share" string="Portal Users" domain="[('share', '=', True)]"/>

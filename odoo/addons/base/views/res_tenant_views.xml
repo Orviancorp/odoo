@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- Search View -->
+        <record id="view_res_tenant_search" model="ir.ui.view">
+            <field name="name">res.tenant.search</field>
+            <field name="model">res.tenant</field>
+            <field name="arch" type="xml">
+                <search string="Tenants">
+                    <field name="name"/>
+                    <field name="subdomain"/>
+                    <field name="full_domain"/>
+                    <field name="parent_id"/>
+                    <filter name="filter_active" string="Active" domain="[('active', '=', True)]"/>
+                    <filter name="filter_archived" string="Archived" domain="[('active', '=', False)]"/>
+                    <separator/>
+                    <filter name="filter_root" string="Root Tenants" domain="[('parent_id', '=', False)]"/>
+                    <filter name="filter_has_parent" string="Has Parent" domain="[('parent_id', '!=', False)]"/>
+                    <group expand="0" string="Group By">
+                        <filter string="Parent Tenant" name="groupby_parent" context="{'group_by': 'parent_id'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <!-- Tree View -->
+        <record id="view_res_tenant_tree" model="ir.ui.view">
+            <field name="name">res.tenant.tree</field>
+            <field name="model">res.tenant</field>
+            <field name="arch" type="xml">
+                <list string="Tenants">
+                    <field name="sequence" widget="handle"/>
+                    <field name="name"/>
+                    <field name="subdomain"/>
+                    <field name="full_domain"/>
+                    <field name="parent_id"/>
+                    <field name="active" widget="boolean_toggle"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Form View -->
+        <record id="view_res_tenant_form" model="ir.ui.view">
+            <field name="name">res.tenant.form</field>
+            <field name="model">res.tenant</field>
+            <field name="arch" type="xml">
+                <form string="Tenant">
+                    <sheet>
+                        <widget name="web_ribbon" title="Archived" bg_color="bg-danger" invisible="active"/>
+                        <div class="oe_title">
+                            <label for="name"/>
+                            <h1>
+                                <field name="name" placeholder="e.g. My Tenant"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="active" invisible="1"/>
+                                <field name="parent_id"/>
+                                <field name="subdomain" placeholder="e.g. comp-a"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="General" name="general">
+                                <group>
+                                    <group string="Configuration">
+                                        <field name="base_domain"/>
+                                    </group>
+                                </group>
+                            </page>
+                            <page string="URL &amp; Domains" name="urls">
+                                <group>
+                                    <field name="full_subdomain"/>
+                                    <field name="full_domain"/>
+                                    <field name="url" widget="url"/>
+                                </group>
+                            </page>
+                            <page string="Users" name="users">
+                                <field name="user_ids" widget="many2many">
+                                    <list>
+                                        <field name="name"/>
+                                        <field name="login"/>
+                                        <field name="lang"/>
+                                    </list>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Action -->
+        <record id="action_res_tenant_form" model="ir.actions.act_window">
+            <field name="name">Tenants</field>
+            <field name="res_model">res.tenant</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_res_tenant_search"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                Create a new tenant
+                </p>
+                <p>
+                Manage multi-tenancy structures, domains and user associations.
+                </p>
+            </field>
+        </record>
+
+        <!-- Menu -->
+        <!-- Placing it under Users & Companies (base.menu_users) -->
+        <menuitem id="menu_res_tenant" parent="base.menu_users" action="action_res_tenant_form" sequence="5" name="Tenants"/>
+
+    </data>
+</odoo>

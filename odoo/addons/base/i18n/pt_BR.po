@@ -60913,3 +60913,99 @@ msgstr "o valor “%(attribute)s” deve ser um número inteiro (%(value)s)"
 
 #~ msgid "title"
 #~ msgstr "título"
+
+#. module: base
+#: model:ir.model,name:base.model_res_tenant
+#: model:ir.actions.act_window,name:base.action_res_tenant_form
+#: model:ir.ui.menu,name:base.menu_res_tenant
+msgid "Tenants"
+msgstr "Tenants"
+
+#. module: base
+#: model:ir.model.fields,field_description:base.field_res_tenant__name
+msgid "Name"
+msgstr "Nome"
+
+#. module: base
+#: model:ir.model.fields,field_description:base.field_res_tenant__subdomain
+msgid "Subdomain"
+msgstr "Subdomínio"
+
+#. module: base
+#: model:ir.model.fields,field_description:base.field_res_tenant__full_subdomain
+msgid "Full Subdomain"
+msgstr "Subdomínio completo"
+
+#. module: base
+#: model:ir.model.fields,field_description:base.field_res_tenant__base_domain
+msgid "Base Domain"
+msgstr "Domínio base"
+
+#. module: base
+#: model:ir.model.fields,field_description:base.field_res_tenant__full_domain
+msgid "Full Domain"
+msgstr "Domínio completo"
+
+#. module: base
+#: model:ir.model.fields,field_description:base.field_res_tenant__url
+msgid "URL"
+msgstr "URL"
+
+#. module: base
+#: model:ir.model.fields,field_description:base.field_res_tenant__parent_id
+msgid "Parent Tenant"
+msgstr "Tenant pai"
+
+#. module: base
+#: model:ir.model.fields,field_description:base.field_res_tenant__child_ids
+msgid "Child Tenants"
+msgstr "Tenants filhos"
+
+#. module: base
+#: model:ir.model.fields,field_description:base.field_res_tenant__user_ids
+msgid "Users"
+msgstr "Usuários"
+
+#. module: base
+#: model:ir.model.fields,help:base.field_res_tenant__subdomain
+msgid "Slug used for tenant identification."
+msgstr "Slug usado para identificação do tenant."
+
+#. module: base
+#: model:ir.model.fields,help:base.field_res_tenant__full_subdomain
+msgid "Hierarchical subdomain."
+msgstr "Subdomínio hierárquico."
+
+#. module: base
+#: model:ir.model.fields,help:base.field_res_tenant__base_domain
+msgid "Base domain for the tenant."
+msgstr "Domínio base para o tenant."
+
+#. module: base
+#: model:ir.model.fields,help:base.field_res_tenant__full_domain
+msgid "Complete domain URL."
+msgstr "URL completa do domínio."
+
+#. module: base
+#: model:ir.model.fields,field_description:base.field_res_users__tenant_id
+#: model:ir.model.fields,string:base.field_res_users__tenant_id
+msgid "Tenant"
+msgstr "Tenant"
+
+#. module: base
+#: model:ir.model.fields,field_description:base.field_res_users__tenant_ids
+#: model:ir.model.fields,string:base.field_res_users__tenant_ids
+msgid "Tenants"
+msgstr "Tenants"
+
+#. module: base
+#: model:ir.model.fields,field_description:base.field_res_users__tenants_count
+msgid "Number of Tenants"
+msgstr "Número de Tenants"
+
+#. module: base
+#: model:ir.model.fields,string:base.field_res_users__tenant_id
+msgid "Default Tenant"
+msgstr "Tenant Padrão"
+
+

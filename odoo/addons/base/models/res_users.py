@@ -182,7 +182,7 @@ class ResUsers(models.Model):
             'image_1024', 'image_512', 'image_256', 'image_128', 'lang', 'tz',
             'tz_offset', 'group_ids', 'partner_id', 'write_date', 'action_id',
             'avatar_1920', 'avatar_1024', 'avatar_512', 'avatar_256', 'avatar_128',
-            'share', 'device_ids', 'api_key_ids', 'phone', 'display_name',
+            'share', 'device_ids', 'api_key_ids', 'phone', 'display_name', 'tenant_id',
         ]
 
     @property
@@ -190,7 +190,7 @@ class ResUsers(models.Model):
         """ The list of fields a user can write on their own user record.
         In order to add fields, please override this property on model extensions.
         """
-        return ['signature', 'action_id', 'company_id', 'email', 'name', 'image_1920', 'lang', 'tz', 'api_key_ids', 'phone']
+        return ['signature', 'action_id', 'company_id', 'email', 'name', 'image_1920', 'lang', 'tz', 'api_key_ids', 'phone', 'tenant_id']
 
     @api.model
     @tools.ormcache(cache='stable')
@@ -246,6 +246,13 @@ class ResUsers(models.Model):
         help='The default company for this user.', context={'user_preference': True})
     company_ids = fields.Many2many('res.company', 'res_company_users_rel', 'user_id', 'cid',
         string='Companies', default=lambda self: self.env.company.ids)
+
+    # Multi-tenancy
+    tenant_id = fields.Many2one('res.tenant', string='Tenant', required=False,
+        help='The default tenant for this user.')
+    tenant_ids = fields.Many2many('res.tenant', 'res_tenant_users_rel', 'user_id', 'tid',
+        string='Tenants')
+    tenants_count = fields.Integer(compute='_compute_tenants_count', string="Number of Tenants")
 
     # overridden inherited fields to bypass access rights, in case you have
     # access to the user but not its corresponding partner
@@ -507,6 +514,22 @@ class ResUsers(models.Model):
                       company_name=user.company_id.name,
                       user_name=user.name,
                       company_allowed=', '.join(user.mapped('company_ids.name')))
+                )
+
+    @api.depends('tenant_id')
+    def _compute_tenants_count(self):
+        # optimization to avoid getting all tenants for all users
+        self.tenants_count = self.env['res.tenant'].search_count([])
+
+    @api.constrains('tenant_id', 'tenant_ids', 'active')
+    def _check_user_tenant(self):
+        for user in self.filtered(lambda u: u.active):
+            if user.tenant_id and user.tenant_id not in user.tenant_ids:
+                raise ValidationError(
+                    _('Tenant %(tenant_name)s is not in the allowed tenants for user %(user_name)s (%(tenant_allowed)s).',
+                      tenant_name=user.tenant_id.name,
+                      user_name=user.name,
+                      tenant_allowed=', '.join(user.mapped('tenant_ids.name')))
                 )
 
     @api.constrains('action_id')

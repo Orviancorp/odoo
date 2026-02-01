@@ -131,6 +131,36 @@
             <field name="domain_force">[(1,'=',1)]</field>
         </record>
 
+        <!-- Record Rules For Tenant -->
+        <record id="res_tenant_rule_portal" model="ir.rule">
+            <field name="name">tenant rule portal</field>
+            <field name="model_id" ref="model_res_tenant"/>
+            <field eval="False" name="global"/>
+            <field name="groups" eval="[Command.set([ref('base.group_portal')])]"/>
+            <field name="domain_force">[('id','in', tenant_ids)]</field>
+        </record>
+        <record id="res_tenant_rule_employee" model="ir.rule">
+            <field name="name">tenant rule employee</field>
+            <field name="model_id" ref="model_res_tenant"/>
+            <field eval="False" name="global"/>
+            <field name="groups" eval="[Command.set([ref('base.group_user')])]"/>
+            <field name="domain_force">[('id','in', tenant_ids)]</field>
+        </record>
+        <record id="res_tenant_rule_public" model="ir.rule">
+            <field name="name">tenant rule public</field>
+            <field name="model_id" ref="model_res_tenant"/>
+            <field eval="False" name="global"/>
+            <field name="groups" eval="[Command.set([ref('base.group_public')])]"/>
+            <field name="domain_force">[('id','in', tenant_ids)]</field>
+        </record>
+        <record id="res_tenant_rule_erp_manager" model="ir.rule">
+            <field name="name">tenant rule erp manager</field>
+            <field name="model_id" ref="model_res_tenant"/>
+            <field eval="False" name="global"/>
+            <field name="groups" eval="[Command.set([ref('base.group_erp_manager')])]"/>
+            <field name="domain_force">[(1,'=',1)]</field>
+        </record>
+
         <record id="res_users_identity_check" model="ir.rule">
             <field name="name">users can only access their own id check</field>
             <field name="model_id" ref="model_res_users_identitycheck"/>
@@ -215,7 +245,7 @@
             <field name="perm_create" eval="False"/>
             <field name="perm_unlink" eval="True"/>
         </record>
-         <record id="embedded_action_admin_delete_rule" model="ir.rule">
+        <record id="embedded_action_admin_delete_rule" model="ir.rule">
             <field name="name">Admins have all the rights on embedded actions</field>
             <field name="model_id" ref="model_ir_embedded_actions"/>
             <field name="domain_force">[(1, '=', 1)]</field>
