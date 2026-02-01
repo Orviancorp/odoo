@@ -29,7 +29,7 @@ class ResTenant(models.Model):
     subdomain = fields.Char(string='Subdomain', required=True, index=True,
                             help="Slug used for tenant identification.")
     full_subdomain = fields.Char(string='Full Subdomain', compute='_compute_full_subdomain', store=True, index=True,
-                                 help="Hierarchical subdomain.")
+                                 recursive=True, help="Hierarchical subdomain.")
     
     # Needs to be a char for now, as requested. 
     base_domain = fields.Char(string='Base Domain',
@@ -73,9 +73,8 @@ class ResTenant(models.Model):
     @api.depends('subdomain', 'parent_id.full_subdomain')
     def _compute_full_subdomain(self):
         for tenant in self:
-            if tenant.parent_id:
-                # Use sudo to access parent's full_subdomain if needed, though robust compute should be fine
-                tenant.full_subdomain = f"{tenant.subdomain}.{tenant.parent_id.full_subdomain}" if tenant.parent_id.full_subdomain else f"{tenant.subdomain}.{tenant.parent_id.subdomain}"
+            if tenant.parent_id and tenant.parent_id.full_subdomain:
+                tenant.full_subdomain = f"{tenant.subdomain}.{tenant.parent_id.full_subdomain}"
             else:
                 tenant.full_subdomain = tenant.subdomain
 
