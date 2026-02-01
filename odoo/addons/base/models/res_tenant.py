@@ -40,8 +40,14 @@ class ResTenant(models.Model):
                                  recursive=True, help="Hierarchical subdomain.")
     
     # Needs to be a char for now, as requested. 
-    base_domain = fields.Char(string='Base Domain',
-                              help="Base domain for the tenant.", compute='_compute_base_domain', store=False)
+    # Base Domain: Editable for Root, Inherited for Child
+    base_domain = fields.Char(string='Base Domain', help="Base domain for the tenant (e.g. orviancorp.com).", 
+                              compute='_compute_base_domain', store=True, readonly=False)
+    
+    # Cloudflare Settings (Root Tenant only)
+    cloudflare_api_token = fields.Char(string="Cloudflare API Token", help="API Token with DNS Edit permissions. Only for Root Tenants.")
+    cloudflare_zone_id = fields.Char(string="Cloudflare Zone ID", help="The Zone ID for the domain in Cloudflare. Only for Root Tenants.")
+    cloudflare_certs_path = fields.Char(string="Certificates Path", help="Directory path to save Cloudflare Origin Certificates. Only for Root Tenants.")
     
     def _default_port(self):
         if self.env.context.get('default_parent_id'):
