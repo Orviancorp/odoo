@@ -61062,3 +61062,10 @@ msgstr "Gerar Certificados de Origem"
 
 msgid "Deleted %s orphan DNS records and %s orphan certificates."
 msgstr "Excluídos %s registros DNS órfãos e %s certificados órfãos."
+
+msgid "Port"
+msgstr "Porta"
+
+msgid "Port number for the tenant URL."
+msgstr "Número da porta para a URL do tenant."
+

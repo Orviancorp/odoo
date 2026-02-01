@@ -94,6 +94,7 @@
                                 <group>
                                     <field name="full_subdomain"/>
                                     <field name="full_domain"/>
+                                    <field name="port"/>
                                     <field name="url" widget="url"/>
                                 </group>
                             </page>

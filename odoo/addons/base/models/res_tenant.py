@@ -43,9 +43,21 @@ class ResTenant(models.Model):
     base_domain = fields.Char(string='Base Domain',
                               help="Base domain for the tenant.", compute='_compute_base_domain', store=False)
     
+    def _default_port(self):
+        if self.env.context.get('default_parent_id'):
+            parent = self.env['res.tenant'].browse(self.env.context['default_parent_id'])
+            # Traverse to root
+            root = parent
+            while root.parent_id:
+                root = root.parent_id
+            return root.port or 443
+        return 443
+
     full_domain = fields.Char(string='Full Domain', compute='_compute_full_domain', store=True, index=True, readonly=True,
                               help="Complete domain URL.")
     
+    port = fields.Integer(string='Port', default=_default_port, required=True, help="Port number for the tenant URL.")
+
     url = fields.Char(string='URL', compute='_compute_url', store=True,
                       help="Full URL for the tenant.")
 
@@ -76,6 +88,16 @@ class ResTenant(models.Model):
             if not re.match(r'^[a-z0-9]+(?:-[a-z0-9]+)*$', tenant.subdomain):
                 raise ValidationError(_("Subdomain must be 'slug-safe': lowercase letters, numbers, and hyphens only. It cannot start or end with a hyphen."))
 
+    @api.onchange('parent_id')
+    def _onchange_parent_id(self):
+        for tenant in self:
+            if tenant.parent_id:
+                # Traverse to root to find the port, similar to default logic
+                root = tenant.parent_id
+                while root.parent_id:
+                    root = root.parent_id
+                tenant.port = root.port or tenant.port or 443
+
     @api.depends('subdomain', 'parent_id.full_subdomain')
     def _compute_full_subdomain(self):
         for tenant in self:
@@ -92,11 +114,14 @@ class ResTenant(models.Model):
             else:
                 tenant.full_domain = False
 
-    @api.depends('full_domain')
+    @api.depends('full_domain', 'port')
     def _compute_url(self):
         for tenant in self:
             if tenant.full_domain:
-                tenant.url = f"https://{tenant.full_domain}"
+                if tenant.port and tenant.port != 443:
+                    tenant.url = f"https://{tenant.full_domain}:{tenant.port}"
+                else:
+                    tenant.url = f"https://{tenant.full_domain}"
             else:
                 tenant.url = False
 
