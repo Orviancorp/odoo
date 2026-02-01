@@ -225,9 +225,9 @@ class ResTenant(models.Model):
                 for record in records:
                     # Record name is FQDN
                     if record['name'] not in valid_fqdns:
-                        to_delete.append(record['id'])
+                        to_delete.add(record['id'])
                     else:
-                        already_exists.append(record['name'])
+                        already_exists.add(record['name'])
                 
                 info = data.get('result_info', {})
                 total_pages = info.get('total_pages', 1)
