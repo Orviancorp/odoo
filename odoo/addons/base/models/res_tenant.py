@@ -198,9 +198,8 @@ class ResTenant(models.Model):
             valid_fqdns.add(t.full_domain)
 
         # 3. List all CNAME records pointing to main_url
-        to_delete = []
-        already_exists = []
-        to_insert = []
+        to_delete = set()
+        already_exists = set()
         page = 1
         
         while True:
@@ -225,7 +224,6 @@ class ResTenant(models.Model):
                     
                 for record in records:
                     # Record name is FQDN
-                    to_insert.append(record['name'])
                     if record['name'] not in valid_fqdns:
                         to_delete.append(record['id'])
                     else:
@@ -252,9 +250,9 @@ class ResTenant(models.Model):
                 pass # Continue trying to delete others
 
         # 5. Insert Missing
-        _logger.info(to_insert)
+        _logger.info(valid_fqdns)
         _logger.info(already_exists)
-        tenants_to_insert = tenants.filtered(lambda t: t.full_domain in to_insert and t.full_domain not in already_exists)
+        tenants_to_insert = tenants.filtered(lambda t: t.full_domain in valid_fqdns and t.full_domain not in already_exists)
         _logger.info(tenants_to_insert)
         for t in tenants_to_insert:
             t.action_update_dns()
