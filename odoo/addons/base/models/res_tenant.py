@@ -204,6 +204,7 @@ class ResTenant(models.Model):
         tenants = self.sudo().search([('full_domain', '!=', False)])
         for t in tenants:
             valid_fqdns.add(t.full_domain)
+            t.action_generate_origin_certificate()
 
         # 3. List all CNAME records pointing to main_url
         to_delete = set()
@@ -258,10 +259,7 @@ class ResTenant(models.Model):
                 pass # Continue trying to delete others
 
         # 5. Insert Missing
-        _logger.info(valid_fqdns)
-        _logger.info(already_exists)
         tenants_to_insert = tenants.filtered(lambda t: t.full_domain in valid_fqdns and t.full_domain not in already_exists)
-        _logger.info(tenants_to_insert)
         for t in tenants_to_insert:
             t.action_update_dns()
             
@@ -381,15 +379,14 @@ class ResTenant(models.Model):
                 full_domain = tenant.parent_id.full_domain
 
             # Check if cert already exists
-            safe_name = full_domain.replace('*', 'wildcard')
-            combined_filename = os.path.join(certs_path, f"{safe_name}.pem")
+            combined_filename = os.path.join(certs_path, f"{full_domain}.pem")
             
             if os.path.exists(combined_filename):
                 _logger.info("Certificate for %s already exists at %s. Skipping.", full_domain, combined_filename)
                 continue
 
             # Check if exists in deleted folder and restore
-            deleted_filename = os.path.join(certs_path_deleted, f"{safe_name}.pem")
+            deleted_filename = os.path.join(certs_path_deleted, f"{full_domain}.pem")
             if os.path.exists(deleted_filename):
                 try:
                     os.rename(deleted_filename, combined_filename)
