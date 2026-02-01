@@ -343,8 +343,7 @@ class ResTenant(models.Model):
                 success_count += 1
                 
             except requests.exceptions.RequestException as e:
-                _logger.error("Failed to connect to Cloudflare for cert generation: %s", str(e))
-                # raise UserError(_("Connection Error: %s") % str(e))
+                raise UserError(_("Connection Error: %s") % str(e))
             except IOError as e:
                  raise UserError(_("Failed to write certificate files: %s") % str(e))
 
