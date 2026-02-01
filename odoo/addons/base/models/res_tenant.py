@@ -200,7 +200,7 @@ class ResTenant(models.Model):
         tenants = self.sudo().search([('full_subdomain', '!=', False)])
         for t in tenants:
             valid_fqdns.add(t.full_subdomain)
-
+        _logger.info(valid_fqdns)
         # 3. List all CNAME records pointing to main_url
         to_delete = []
         page = 1
@@ -227,6 +227,7 @@ class ResTenant(models.Model):
                     
                 for record in records:
                     # Record name is FQDN
+                    _logger.info(record['name'])
                     if record['name'] not in valid_fqdns:
                         to_delete.append(record['id'])
                 
