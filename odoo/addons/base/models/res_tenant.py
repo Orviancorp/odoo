@@ -318,11 +318,10 @@ class ResTenant(models.Model):
 
             try:
                 response = requests.post(url, json=data, headers=headers)
+                _logger.info(response)
                 response.raise_for_status()
                 result = response.json()
-
-                _logger.info(result)
-                
+               
                 if not result.get('success'):
                     errors = result.get('errors', [])
                     msg = ", ".join([e.get('message', 'Unknown error') for e in errors])
