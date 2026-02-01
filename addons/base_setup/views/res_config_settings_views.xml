@@ -142,6 +142,9 @@
                         <setting id="main_system_url" help="The main system domain (e.g. domain.com).">
                             <field name="main_system_url"/>
                         </setting>
+                        <setting id="cloudflare_certs_path" help="Directory path where Origin Certificates will be saved.">
+                            <field name="cloudflare_certs_path"/>
+                        </setting>
                     </block>
 
                     <block title="Progressive Web App" id="pwa_settings" groups="base.group_no_one">

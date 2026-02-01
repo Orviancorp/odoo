@@ -61041,3 +61041,22 @@ msgstr "Falha ao buscar detalhes da Zona."
 msgid "Cleanup Orphean DNS"
 msgstr "Limpar DNS Órfãos"
 
+
+msgid "Cloudflare settings (Token or Certs Path) are missing."
+msgstr "Configurações do Cloudflare (Token ou Caminho de Certificados) estão ausentes."
+
+msgid "Failed to create certificates directory: %s"
+msgstr "Falha ao criar diretório de certificados: %s"
+
+msgid "Failed to write certificate files: %s"
+msgstr "Falha ao gravar arquivos de certificado: %s"
+
+msgid "Certificate Generation"
+msgstr "Geração de Certificados"
+
+msgid "Generated %s certificates."
+msgstr "Gerados %s certificados."
+
+msgid "Generate Origin Certificates"
+msgstr "Gerar Certificados de Origem"
+

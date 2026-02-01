@@ -715,3 +715,10 @@ msgstr "ID da Zona Cloudflare"
 msgid "Main System URL"
 msgstr "URL Principal do Sistema"
 
+
+msgid "Certificates Path"
+msgstr "Caminho dos Certificados"
+
+msgid "Directory path to save Cloudflare Origin Certificates."
+msgstr "Caminho do diretório para salvar Certificados de Origem Cloudflare."
+

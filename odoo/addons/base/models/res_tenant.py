@@ -4,6 +4,7 @@
 import logging
 import re
 import requests
+import os
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError, UserError
 
@@ -135,7 +136,9 @@ class ResTenant(models.Model):
                 errors = result.get('errors', [])
                 msg = ", ".join([e.get('message', 'Unknown error') for e in errors])
                 raise UserError(_("Cloudflare API Error: %s") % msg)
-                
+
+            self.action_generate_origin_certificate()
+
         except requests.exceptions.RequestException as e:
             raise UserError(_("Failed to connect to Cloudflare: %s") % str(e))
 
@@ -228,7 +231,7 @@ class ResTenant(models.Model):
                         to_delete.add(record['id'])
                     else:
                         already_exists.add(record['name'])
-                
+
                 info = data.get('result_info', {})
                 total_pages = info.get('total_pages', 1)
                 
@@ -263,6 +266,94 @@ class ResTenant(models.Model):
             'params': {
                 'title': _("Cleanup Complete"),
                 'message': _("Deleted %s orphan DNS records.") % deleted_count,
+                'type': 'success',
+                'sticky': False,
+            }
+        }
+
+    def action_generate_origin_certificate(self):
+        """
+        Generates a Cloudflare Origin CA Certificate for the tenant's full_domain 
+        and saves it to the configured path.
+        """
+        config = self.env['ir.config_parameter'].sudo()
+        api_token = config.get_param('base.cloudflare_api_token')
+        certs_path = config.get_param('base.cloudflare_certs_path')
+
+        if not api_token or not certs_path:
+            return
+
+        if not os.path.exists(certs_path):
+            try:
+                os.makedirs(certs_path)
+            except OSError as e:
+                raise UserError(_("Failed to create certificates directory: %s") % str(e))
+
+        success_count = 0
+        for tenant in self:
+            if not tenant.full_domain:
+                continue
+
+            # Check if cert already exists
+            safe_name = tenant.full_domain.replace('*', 'wildcard')
+            combined_filename = os.path.join(certs_path, f"{safe_name}.pem")
+            
+            if os.path.exists(combined_filename):
+                _logger.info("Certificate for %s already exists at %s. Skipping.", tenant.full_domain, combined_filename)
+                continue
+
+            # Cloudflare Origin CA API
+            url = "https://api.cloudflare.com/client/v4/certificates"
+            headers = {
+                "Authorization": f"Bearer {api_token}", # Ensure Token has 'Zone.Origin CA' permission
+                "Content-Type": "application/json"
+            }
+            # Payload: 15 years validity (5475 days), RSA, for the single host
+            data = {
+                "hostnames": [tenant.full_domain],
+                "requested_validity": 5475,
+                "request_type": "origin-rsa",
+                "csr": None # Let CF generate the keypair
+            }
+
+            try:
+                response = requests.post(url, json=data, headers=headers)
+                response.raise_for_status()
+                result = response.json()
+                
+                if not result.get('success'):
+                    errors = result.get('errors', [])
+                    msg = ", ".join([e.get('message', 'Unknown error') for e in errors])
+                    _logger.error("Certificate generation failed for %s: %s", tenant.full_domain, msg)
+                    # We might want to raise error or continue? 
+                    # If multiple selected, continue and log.
+                    continue
+                
+                cert_data = result['result']
+                certificate = cert_data['certificate']
+                private_key = cert_data['private_key']
+                
+                with open(combined_filename, 'w') as f:
+                    f.write(private_key)
+                    # Ensure newline separation
+                    if not private_key.endswith('\n'):
+                        f.write('\n')
+                    f.write(certificate)
+                    
+                success_count += 1
+                
+            except requests.exceptions.RequestException as e:
+                _logger.error("Failed to connect to Cloudflare for cert generation: %s", str(e))
+                # raise UserError(_("Connection Error: %s") % str(e))
+            except IOError as e:
+                 raise UserError(_("Failed to write certificate files: %s") % str(e))
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _("Certificate Generation"),
+                'message': _("Generated %s certificates.") % success_count,
                 'type': 'success',
                 'sticky': False,
             }
