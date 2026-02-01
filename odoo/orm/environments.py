@@ -283,6 +283,72 @@ class Environment(Mapping[str, "BaseModel"]):
         return self['res.company'].browse(user_company_ids)
 
     @functools.cached_property
+    def tenant(self) -> BaseModel:
+        """Return the current tenant (as an instance).
+
+        If not specified in the context (`allowed_tenant_ids`),
+        fallback on current user main tenant.
+
+        :raise AccessError: invalid or unauthorized `allowed_tenant_ids` context key content.
+        :return: current tenant (default=`self.user.tenant_id`), with the current environment
+        :rtype: :class:`res.tenant record<~odoo.addons.base.models.res_tenant.Tenant>`
+
+        .. warning::
+
+            No sanity checks applied in sudo mode!
+            When in sudo mode, a user can access any tenant,
+            even if not in his allowed tenants.
+
+            This allows to trigger inter-tenant modifications,
+            even if the current user doesn't have access to
+            the targeted tenant.
+        """
+        tenant_ids = self.context.get('allowed_tenant_ids', [])
+        if tenant_ids:
+            if not self.su:
+                user_tenant_ids = self.user._get_tenant_ids()
+                if set(tenant_ids) - set(user_tenant_ids):
+                    raise AccessError(self._("Access to unauthorized or invalid tenants."))
+            return self['res.tenant'].browse(tenant_ids[0])
+        return self.user.tenant_id.with_env(self)
+
+    @functools.cached_property
+    def tenants(self) -> BaseModel:
+        """Return a recordset of the enabled tenants by the user.
+
+        If not specified in the context(`allowed_tenant_ids`),
+        fallback on current user tenants.
+
+        :raise AccessError: invalid or unauthorized `allowed_tenant_ids` context key content.
+        :return: current tenants (default=`self.user.tenant_ids`), with the current environment
+        :rtype: :class:`res.tenant recordset<~odoo.addons.base.models.res_tenant.Tenant>`
+
+        .. warning::
+
+            No sanity checks applied in sudo mode !
+            When in sudo mode, a user can access any tenant,
+            even if not in his allowed tenants.
+
+            This allows to trigger inter-tenant modifications,
+            even if the current user doesn't have access to
+            the targeted tenant.
+        """
+        tenant_ids = self.context.get('allowed_tenant_ids', [])
+        user_tenant_ids = self.user._get_tenant_ids()
+        if tenant_ids:
+            if not self.su:
+                if set(tenant_ids) - set(user_tenant_ids):
+                    raise AccessError(self._("Access to unauthorized or invalid tenants."))
+            return self['res.tenant'].browse(tenant_ids)
+        # By setting the default tenants to all user tenants instead of the main one
+        # we save a lot of potential trouble in all "out of context" calls, such as
+        # /mail/redirect or /web/image, etc. And it is not unsafe because the user does
+        # have access to these other tenants. The risk of exposing foreign records
+        # (wrt to the context) is low because all normal RPCs will have a proper
+        # allowed_tenant_ids.
+        return self['res.tenant'].browse(user_tenant_ids)
+
+    @functools.cached_property
     def tz(self) -> tzinfo:
         """Return the current timezone info, defaults to UTC."""
         timezone = self.context.get('tz') or self.user.tz
@@ -473,6 +539,8 @@ class Environment(Mapping[str, "BaseModel"]):
         def get(key, get_context=self.context.get):
             if key == 'company':
                 return self.company.id
+            elif key == 'tenant':
+                return self.tenant.id
             elif key == 'uid':
                 return self.uid if field.compute_sudo else (self.uid, self.su)
             elif key == 'lang':

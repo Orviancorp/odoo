@@ -751,6 +751,12 @@ class ResUsers(models.Model):
         domain = [('active', '=', True), ('user_ids', 'in', self.id)]
         return self.env['res.company'].search(domain)._ids
 
+    @tools.ormcache('self.id')
+    def _get_tenant_ids(self):
+        # use search() instead of `self.tenant_ids` to avoid extra query for `active_test`
+        domain = [('active', '=', True), ('user_ids', 'in', self.id)]
+        return self.env['res.tenant'].search(domain)._ids
+
     @api.model
     def action_get(self):
         return self.sudo().env.ref('base.action_res_users_my').read()[0]
