@@ -61060,3 +61060,5 @@ msgstr "Gerados %s certificados."
 msgid "Generate Origin Certificates"
 msgstr "Gerar Certificados de Origem"
 
+msgid "Deleted %s orphan DNS records and %s orphan certificates."
+msgstr "Excluídos %s registros DNS órfãos e %s certificados órfãos."

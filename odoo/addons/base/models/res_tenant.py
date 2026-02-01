@@ -5,6 +5,7 @@ import logging
 import re
 import requests
 import os
+import glob
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -265,17 +266,68 @@ class ResTenant(models.Model):
         _logger.info(tenants_to_insert)
         for t in tenants_to_insert:
             t.action_update_dns()
+            
+        # 6. Cleanup Orphan Certificates
+        deleted_certs = self._cleanup_orphan_certificates(config)
 
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
                 'title': _("Cleanup Complete"),
-                'message': _("Deleted %s orphan DNS records.") % deleted_count,
+                'message': _("Deleted %s orphan DNS records and %s orphan certificates.") % (deleted_count, deleted_certs),
                 'type': 'success',
                 'sticky': False,
             }
         }
+
+    def _cleanup_orphan_certificates(self, config):
+        """
+        Deletes certificate files (.pem) that do not correspond to any active tenant.
+        Does NOT delete the certificate for the Main System URL.
+        """
+        certs_path = config.get_param('base.cloudflare_certs_path')
+        main_url = config.get_param('base.main_system_url')
+        
+        if not certs_path or not os.path.exists(certs_path):
+            return 0
+            
+        # 1. Allowlist: Active Tenants + Main URL
+        allowlist = set()
+        if main_url:
+             # Add main URL and wildcard variant
+            allowlist.add(main_url)
+            allowlist.add(f"*.{main_url}") 
+            # Also filename safe versions
+            allowlist.add(main_url.replace('*', 'wildcard'))
+            allowlist.add(f"*.{main_url}".replace('*', 'wildcard'))
+
+        tenants = self.sudo().search([('full_domain', '!=', False)])
+        for t in tenants:
+            allowlist.add(t.full_domain)
+            safe_name = t.full_domain.replace('*', 'wildcard')
+            allowlist.add(safe_name)
+            
+        # 2. Iterate and Delete
+        deleted_count = 0
+        # Check all .pem files
+        files = glob.glob(os.path.join(certs_path, "*.pem"))
+        for file_path in files:
+            filename = os.path.basename(file_path)
+            # Remove extension to get "domain" or "safe_name"
+            # Logic: We stored as `safe_name.pem`. 
+            # So if `safe_name` is in allowlist, keep it.
+            name_no_ext = os.path.splitext(filename)[0]
+            
+            if name_no_ext not in allowlist:
+                try:
+                    os.remove(file_path)
+                    _logger.info("Deleted orphan certificate: %s", file_path)
+                    deleted_count += 1
+                except OSError as e:
+                    _logger.error("Failed to delete certificate %s: %s", file_path, e)
+                    
+        return deleted_count
 
     def action_generate_origin_certificate(self):
         """
