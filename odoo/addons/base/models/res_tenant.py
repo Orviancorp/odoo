@@ -318,7 +318,7 @@ class ResTenant(models.Model):
 
             try:
                 response = requests.post(url, json=data, headers=headers)
-                _logger.info(response)
+                _logger.info(response.text)
                 response.raise_for_status()
                 result = response.json()
                
