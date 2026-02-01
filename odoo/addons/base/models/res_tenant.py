@@ -107,10 +107,10 @@ class ResTenant(models.Model):
         main_url = self.base_domain
 
         if not api_token or not zone_id or not main_url:
-            raise UserError(_("Cloudflare settings are missing. Please configure them in Settings."))
+            return
 
         if not self.full_subdomain:
-            raise UserError(_("Full Subdomain is not set for this tenant."))
+            return
 
         url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records"
         headers = {
@@ -165,10 +165,6 @@ class ResTenant(models.Model):
         # If any of the required parameters are missing, return without doing anything because the DNS record will not be created
         if not api_token or not zone_id or not main_url:
             return
-            
-        # Validation to prevent users from entering the domain name as the Zone ID
-        if '.' in zone_id or len(zone_id) < 30:
-            raise UserError(_("Invalid Cloudflare Zone ID: '%s'. It looks like a domain name or is too short. Please enter the alphanumeric Zone ID found in your Cloudflare dashboard.") % zone_id)
 
         headers = {
             "Authorization": f"Bearer {api_token}",
@@ -199,6 +195,7 @@ class ResTenant(models.Model):
         valid_fqdns = set()
         tenants = self.sudo().search([('full_domain', '!=', False)])
         for t in tenants:
+            t.action_update_dns()
             valid_fqdns.add(t.full_domain)
         _logger.info(valid_fqdns)
         # 3. List all CNAME records pointing to main_url
