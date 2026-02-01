@@ -307,7 +307,7 @@ class ResTenant(models.Model):
             allowlist.add(t.full_domain)
             safe_name = t.full_domain.replace('*', 'wildcard')
             allowlist.add(safe_name)
-            
+        _logger.info(allowlist)
         # 2. Iterate and Delete
         deleted_count = 0
         # Check all .pem files
@@ -318,7 +318,7 @@ class ResTenant(models.Model):
             # Logic: We stored as `safe_name.pem`. 
             # So if `safe_name` is in allowlist, keep it.
             name_no_ext = os.path.splitext(filename)[0]
-            
+            _logger.info(name_no_ext)
             if name_no_ext not in allowlist:
                 try:
                     os.remove(file_path)
