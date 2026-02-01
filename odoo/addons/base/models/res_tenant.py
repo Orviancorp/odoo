@@ -133,7 +133,6 @@ class ResTenant(models.Model):
 
         try:
             response = requests.post(url, json=data, headers=headers)
-            _logger.info(response.text)
             # Check for HTTP errors first
             response.raise_for_status()
             
@@ -143,10 +142,10 @@ class ResTenant(models.Model):
                 msg = ", ".join([e.get('message', 'Unknown error') for e in errors])
                 raise UserError(_("Cloudflare API Error: %s") % msg)
 
-            self.action_generate_origin_certificate()
-
         except requests.exceptions.RequestException as e:
-            raise UserError(_("Failed to connect to Cloudflare: %s") % str(e))
+            _logger.error(_("Failed to connect to Cloudflare: %s") % str(e))
+
+        self.action_generate_origin_certificate()
 
         return {
             'type': 'ir.actions.client',
