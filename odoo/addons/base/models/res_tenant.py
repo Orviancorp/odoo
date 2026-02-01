@@ -194,12 +194,12 @@ class ResTenant(models.Model):
         # Safer approach:
         # CF Record Name is always FQDN.
         # Odoo Tenant `full_subdomain` is the relative part (usually).
-        # So we expect Record Name == tenant.full_subdomain
+        # So we expect Record Name == tenant.full_domain
         
         valid_fqdns = set()
-        tenants = self.sudo().search([('full_subdomain', '!=', False)])
+        tenants = self.sudo().search([('full_domain', '!=', False)])
         for t in tenants:
-            valid_fqdns.add(t.full_subdomain)
+            valid_fqdns.add(t.full_domain)
         _logger.info(valid_fqdns)
         # 3. List all CNAME records pointing to main_url
         to_delete = []
