@@ -124,6 +124,7 @@ class ResTenant(models.Model):
             "ttl": 1,  # Auto
             "proxied": True
         }
+        _logger.info(data)
 
         try:
             response = requests.post(url, json=data, headers=headers)
