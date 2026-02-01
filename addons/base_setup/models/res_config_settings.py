@@ -44,6 +44,11 @@ class ResConfigSettings(models.TransientModel):
     company_country_code = fields.Char(related="company_id.country_id.code", string="Company Country Code", readonly=True)
     company_country_group_codes = fields.Json(related="company_id.country_id.country_group_codes")
     profiling_enabled_until = fields.Datetime("Profiling enabled until", config_parameter='base.profiling_enabled_until')
+    
+    # Cloudflare Integration
+    cloudflare_api_token = fields.Char(string="Cloudflare API Token", config_parameter='base.cloudflare_api_token', help="API Token with DNS Edit permissions.")
+    cloudflare_zone_id = fields.Char(string="Cloudflare Zone ID", config_parameter='base.cloudflare_zone_id', help="The Zone ID for the domain in Cloudflare.")
+    main_system_url = fields.Char(string="Main System URL", config_parameter='base.main_system_url', default='orviancorp.com', help="The main domain (e.g. orviancorp.com).")
 
     def open_company(self):
         return {

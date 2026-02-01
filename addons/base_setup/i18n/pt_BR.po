@@ -705,3 +705,13 @@ msgstr "reCAPTCHA"
 
 #~ msgid "Synchronize your calendar with Outlook"
 #~ msgstr "Sincronize seu calendário com o Outlook"
+
+msgid "Cloudflare API Token"
+msgstr "Token da API Cloudflare"
+
+msgid "Cloudflare Zone ID"
+msgstr "ID da Zona Cloudflare"
+
+msgid "Main System URL"
+msgstr "URL Principal do Sistema"
+

@@ -61009,3 +61009,22 @@ msgid "Default Tenant"
 msgstr "Tenant Padrão"
 
 
+
+msgid "Update DNS"
+msgstr "Atualizar DNS"
+
+msgid "DNS Record created successfully!"
+msgstr "Registro DNS criado com sucesso!"
+
+msgid "Cloudflare settings are missing. Please configure them in Settings."
+msgstr "Configurações do Cloudflare ausentes. Por favor, configure-as nas Definições."
+
+msgid "Full Subdomain is not set for this tenant."
+msgstr "Subdomínio Completo não definido para este inquilino."
+
+msgid "Cloudflare API Error: %s"
+msgstr "Erro na API Cloudflare: %s"
+
+msgid "Failed to connect to Cloudflare: %s"
+msgstr "Falha ao conectar ao Cloudflare: %s"
+

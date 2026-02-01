@@ -46,6 +46,9 @@
             <field name="model">res.tenant</field>
             <field name="arch" type="xml">
                 <form string="Tenant">
+                    <header>
+                        <button name="action_update_dns" string="Update DNS" type="object" class="oe_highlight"/>
+                    </header>
                     <sheet>
                         <widget name="web_ribbon" title="Archived" bg_color="bg-danger" invisible="active"/>
                         <div class="oe_title">

@@ -132,6 +132,18 @@
                         </setting>
                     </block>
 
+                    <block title="Cloudflare DNS" id="cloudflare_settings">
+                        <setting id="cloudflare_api_token" help="API Token with DNS Edit permissions.">
+                            <field name="cloudflare_api_token" password="True"/>
+                        </setting>
+                        <setting id="cloudflare_zone_id" help="The Zone ID for the domain in Cloudflare.">
+                            <field name="cloudflare_zone_id"/>
+                        </setting>
+                        <setting id="main_system_url" help="The main system domain (e.g. orviancorp.com).">
+                            <field name="main_system_url"/>
+                        </setting>
+                    </block>
+
                     <block title="Progressive Web App" id="pwa_settings" groups="base.group_no_one">
                         <setting help="This name will be used for the application when Odoo is installed through the browser.">
                             <field name="web_app_name" placeholder="Odoo"/>

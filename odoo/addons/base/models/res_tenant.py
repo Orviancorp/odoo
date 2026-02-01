@@ -3,8 +3,9 @@
 
 import logging
 import re
+import requests
 from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ValidationError, UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -91,3 +92,54 @@ class ResTenant(models.Model):
     def _compute_user_count(self):
         for tenant in self:
             tenant.user_count = len(tenant.user_ids)
+
+    def action_update_dns(self):
+        self.ensure_one()
+        config = self.env['ir.config_parameter'].sudo()
+        api_token = config.get_param('base.cloudflare_api_token')
+        zone_id = config.get_param('base.cloudflare_zone_id')
+        main_url = config.get_param('base.main_system_url')
+
+        if not api_token or not zone_id or not main_url:
+            raise UserError(_("Cloudflare settings are missing. Please configure them in Settings."))
+
+        if not self.full_subdomain:
+            raise UserError(_("Full Subdomain is not set for this tenant."))
+
+        url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records"
+        headers = {
+            "Authorization": f"Bearer {api_token}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "type": "CNAME",
+            "name": self.full_subdomain,
+            "content": main_url,
+            "ttl": 1,  # Auto
+            "proxied": True
+        }
+
+        try:
+            response = requests.post(url, json=data, headers=headers)
+            # Check for HTTP errors first
+            response.raise_for_status()
+            
+            result = response.json()
+            if not result.get('success'):
+                errors = result.get('errors', [])
+                msg = ", ".join([e.get('message', 'Unknown error') for e in errors])
+                raise UserError(_("Cloudflare API Error: %s") % msg)
+                
+        except requests.exceptions.RequestException as e:
+            raise UserError(_("Failed to connect to Cloudflare: %s") % str(e))
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _("Success"),
+                'message': _("DNS Record created successfully!"),
+                'type': 'success',
+                'sticky': False,
+            }
+        }
