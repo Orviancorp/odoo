@@ -189,35 +189,18 @@ class ResTenant(models.Model):
             raise UserError(_("Failed to connect to Cloudflare: %s") % str(e))
         
         # 2. Get all valid Full Subdomains (FQDNs) from Tenants
-        # We construct the expected FQDN: full_subdomain + "." + zone_name
-        # Logic: full_subdomain in Odoo does not include the base domain usually?
-        # Re-check compute logic: tenant.full_domain = f"{tenant.full_subdomain}.{tenant.base_domain}"
-        # If base_domain is used, we should use full_domain.
-        # But wait, action_update_dns uses `self.full_subdomain` as 'name'.
-        # If I send name="sub", CF makes "sub.zone". FQDN is "sub.zone".
-        # If I send name="sub.parent", CF makes "sub.parent.zone".
-        # So essentially, Cloudflare records will have name = full_subdomain + "." + zone_name.
-        # BUT: Tenant model has `full_domain`. That should be the FQDN.
-        # Let's rely on `full_domain` if set, otherwise construct it.
-        
-        # Actually, let's look at `full_domain` compute:
-        # tenant.full_domain = f"{tenant.full_subdomain}.{tenant.base_domain}"
-        # If base_domain is NOT set, full_domain is False.
+        # Logic: full_subdomain in Odoo does not include the base domain usually.
         # This cleanup assumes tenants ARE using the zone as base.
-        
-        # Let's trust that the 'name' in CF == tenant.full_subdomain + "." + zone_name
-        # Or simply tenant.full_subdomain (if it's a subdomain of zone).
         
         # Safer approach:
         # CF Record Name is always FQDN.
         # Odoo Tenant `full_subdomain` is the relative part (usually).
-        # So we expect Record Name == f"{tenant.full_subdomain}.{zone_name}"
+        # So we expect Record Name == tenant.full_subdomain
         
         valid_fqdns = set()
-        tenants = self.search([('full_subdomain', '!=', False)])
+        tenants = self.sudo().search([('full_subdomain', '!=', False)])
         for t in tenants:
-            valid_fqdns.add(f"{t.full_subdomain}.{zone_name}")
-            # Also add hyphenated version just in case of inconsistency? No, restrict to exact match.
+            valid_fqdns.add(t.full_subdomain)
 
         # 3. List all CNAME records pointing to main_url
         to_delete = []
