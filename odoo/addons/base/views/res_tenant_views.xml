@@ -17,7 +17,7 @@
                     <separator/>
                     <filter name="filter_root" string="Root Tenants" domain="[('parent_id', '=', False)]"/>
                     <filter name="filter_has_parent" string="Has Parent" domain="[('parent_id', '!=', False)]"/>
-                    <group string="Group By">
+                    <group>
                         <filter string="Parent Tenant" name="groupby_parent" context="{'group_by': 'parent_id'}"/>
                     </group>
                 </search>
