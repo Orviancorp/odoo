@@ -124,7 +124,6 @@ class ResTenant(models.Model):
             "ttl": 1,  # Auto
             "proxied": True
         }
-        _logger.info(data)
 
         try:
             response = requests.post(url, json=data, headers=headers)
@@ -192,15 +191,16 @@ class ResTenant(models.Model):
         # CF Record Name is always FQDN.
         # Odoo Tenant `full_subdomain` is the relative part (usually).
         # So we expect Record Name == tenant.full_domain
-        
+
         valid_fqdns = set()
         tenants = self.sudo().search([('full_domain', '!=', False)])
         for t in tenants:
-            t.action_update_dns()
             valid_fqdns.add(t.full_domain)
-        _logger.info(valid_fqdns)
+
         # 3. List all CNAME records pointing to main_url
         to_delete = []
+        already_exists = []
+        to_insert = []
         page = 1
         
         while True:
@@ -225,9 +225,11 @@ class ResTenant(models.Model):
                     
                 for record in records:
                     # Record name is FQDN
-                    _logger.info(record['name'])
+                    to_insert.append(record['name'])
                     if record['name'] not in valid_fqdns:
                         to_delete.append(record['id'])
+                    else:
+                        already_exists.append(record['name'])
                 
                 info = data.get('result_info', {})
                 total_pages = info.get('total_pages', 1)
@@ -248,6 +250,11 @@ class ResTenant(models.Model):
                 deleted_count += 1
             except:
                 pass # Continue trying to delete others
+
+        # 5. Insert Missing
+        tenants_to_insert = tenants.filter(lambda t: t.full_domain in to_insert and t.full_domain not in already_exists)
+        for t in tenants_to_insert:
+            t.action_update_dns()
 
         return {
             'type': 'ir.actions.client',
