@@ -34,7 +34,7 @@ class ResTenant(models.Model):
     base_domain = fields.Char(string='Base Domain',
                               help="Base domain for the tenant.")
     
-    full_domain = fields.Char(string='Full Domain', compute='_compute_full_domain', store=True, index=True, unique=True,
+    full_domain = fields.Char(string='Full Domain', compute='_compute_full_domain', store=True, index=True, readonly=True,
                               help="Complete domain URL.")
     
     url = fields.Char(string='URL', compute='_compute_url', store=True,
