@@ -307,10 +307,6 @@ class ResTenant(models.Model):
         if main_url:
              # Add main URL and wildcard variant
             allowlist.add(main_url)
-            allowlist.add(f"*.{main_url}") 
-            # Also filename safe versions
-            allowlist.add(main_url.replace('*', 'wildcard'))
-            allowlist.add(f"*.{main_url}".replace('*', 'wildcard'))
 
         tenants = self.sudo().search([('full_domain', '!=', False)])
         for t in tenants:
@@ -320,9 +316,7 @@ class ResTenant(models.Model):
                 full_domain = t.parent_id.full_domain
             
             allowlist.add(full_domain)
-            safe_name = full_domain.replace('*', 'wildcard')
-            allowlist.add(safe_name)
-            
+
         _logger.info("Certificate Cleanup Allowlist: %s", allowlist)
         
         # 2. Iterate and Delete
