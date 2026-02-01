@@ -86,8 +86,15 @@
                             <page string="General" name="general">
                                 <group>
                                     <group string="Configuration">
-                                        <field name="base_domain"/>
+                                        <field name="base_domain" readonly="parent_id != False"/>
                                     </group>
+                                </group>
+                            </page>
+                            <page string="Cloudflare" name="cloudflare" invisible="parent_id != False">
+                                <group>
+                                    <field name="cloudflare_api_token" password="True"/>
+                                    <field name="cloudflare_zone_id"/>
+                                    <field name="cloudflare_certs_path"/>
                                 </group>
                             </page>
                             <page string="URL &amp; Domains" name="urls">

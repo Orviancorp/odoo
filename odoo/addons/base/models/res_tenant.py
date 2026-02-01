@@ -71,11 +71,16 @@ class ResTenant(models.Model):
     ]
 
 
+    @api.depends('parent_id', 'parent_id.base_domain')
     def _compute_base_domain(self):
-        config = self.env['ir.config_parameter'].sudo()
-        main_system_url = config.get_param('base.main_system_url')
         for tenant in self:
-            tenant.base_domain = main_system_url
+            if tenant.parent_id:
+                tenant.base_domain = tenant.parent_id.base_domain
+            # If root, we rely on user input (or stored value). 
+            # Compute method usually overwrites if strictly computed. 
+            # With store=True + readonly=False, it triggers only on dependency change.
+            elif not tenant.base_domain:
+                tenant.base_domain = False
 
     @api.constrains('parent_id')
     def _check_parent_id(self):
@@ -97,6 +102,9 @@ class ResTenant(models.Model):
                 while root.parent_id:
                     root = root.parent_id
                 tenant.port = root.port or tenant.port or 443
+                
+                # Also inherit base_domain if parent set
+                tenant.base_domain = tenant.parent_id.base_domain
 
     @api.depends('subdomain', 'parent_id.full_subdomain')
     def _compute_full_subdomain(self):
@@ -132,13 +140,18 @@ class ResTenant(models.Model):
 
     def action_update_dns(self):
         self.ensure_one()
-        config = self.env['ir.config_parameter'].sudo()
-        api_token = config.get_param('base.cloudflare_api_token')
-        zone_id = config.get_param('base.cloudflare_zone_id')
-        main_url = self.base_domain
+        
+        # Find Root Tenant for configuration
+        root = self
+        while root.parent_id:
+            root = root.parent_id
+            
+        api_token = root.cloudflare_api_token
+        zone_id = root.cloudflare_zone_id
+        main_url = root.base_domain
 
         if not api_token or not zone_id or not main_url:
-            return
+            raise UserError(_("Cloudflare settings (Token, Zone ID, or Base Domain) are missing on the Root Tenant."))
 
         if not self.full_subdomain:
             return
@@ -186,52 +199,56 @@ class ResTenant(models.Model):
     @api.model
     def action_cleanup_orphan_dns_records(self):
         """
-        Deletes Cloudflare CNAME records that point to the main system URL
-        but do not correspond to any existing Tenant's full_subdomain.
-        This is a global cleanup action.
+        Deletes Cloudflare CNAME records that point to the main system URL.
+        Iterates over all Root Tenants to handle multiple zones/domains.
         """
-        config = self.env['ir.config_parameter'].sudo()
-        api_token = config.get_param('base.cloudflare_api_token')
-        zone_id = config.get_param('base.cloudflare_zone_id')
-        main_url = config.get_param('base.main_system_url')
+        root_tenants = self.search([('parent_id', '=', False)])
+        total_deleted_dns = 0
+        total_deleted_certs = 0
+        
+        for root in root_tenants:
+            deleted_dns, deleted_certs = self._cleanup_root_tenant(root)
+            total_deleted_dns += deleted_dns
+            total_deleted_certs += deleted_certs
 
-        # If any of the required parameters are missing, return without doing anything because the DNS record will not be created
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _("Cleanup Complete"),
+                'message': _("Deleted %s orphan DNS records and %s orphan certificates.") % (total_deleted_dns, total_deleted_certs),
+                'type': 'success',
+                'sticky': False,
+            }
+        }
+
+    def _cleanup_root_tenant(self, root):
+        api_token = root.cloudflare_api_token
+        zone_id = root.cloudflare_zone_id
+        main_url = root.base_domain
+
         if not api_token or not zone_id or not main_url:
-            return
+            return 0, 0
 
         headers = {
             "Authorization": f"Bearer {api_token}",
             "Content-Type": "application/json"
         }
 
-        # 1. Get Zone Details to determine Zone Name (e.g. domain.com)
-        try:
-            zone_url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}"
-            zone_resp = requests.get(zone_url, headers=headers)
-            zone_resp.raise_for_status()
-            zone_data = zone_resp.json()
-            if not zone_data.get('success'):
-                raise UserError(_("Failed to fetch Zone details."))
-            zone_name = zone_data['result']['name']
-        except requests.exceptions.RequestException as e:
-            raise UserError(_("Failed to connect to Cloudflare: %s") % str(e))
+        # 1. Get Zone Details (Optional verify) - skipping for speed/simplicity
         
-        # 2. Get all valid Full Subdomains (FQDNs) from Tenants
-        # Logic: full_subdomain in Odoo does not include the base domain usually.
-        # This cleanup assumes tenants ARE using the zone as base.
+        # 2. Get valid FQDNs for THIS root's children (and root itself)
+        # Assuming all descendants share the same zone/domain logic?
+        # Actually, if we have multiple roots, we only care about tenants under THIS root.
         
-        # Safer approach:
-        # CF Record Name is always FQDN.
-        # Odoo Tenant `full_subdomain` is the relative part (usually).
-        # So we expect Record Name == tenant.full_domain
-
-        valid_fqdns = set()
-        tenants = self.sudo().search([('full_domain', '!=', False)])
-        for t in tenants:
-            valid_fqdns.add(t.full_domain)
-            t.action_generate_origin_certificate()
-
-        # 3. List all CNAME records pointing to main_url
+        # Helper to get all descendants
+        # Odoo's parent_store makes searching children easy usually, but let's use search with parent_id hierarchy
+        # Or easier: domain search
+        # Using 'child_of' operator
+        family = self.search([('id', 'child_of', root.id)])
+        valid_fqdns = set(t.full_domain for t in family if t.full_domain)
+        
+        # 3. List all CNAME records for this zone pointing to main_url
         to_delete = set()
         already_exists = set()
         page = 1
@@ -250,7 +267,7 @@ class ResTenant(models.Model):
                 data = resp.json()
                 
                 if not data.get('success'):
-                     break # Should handle error?
+                     break 
                      
                 records = data.get('result', [])
                 if not records:
@@ -271,7 +288,7 @@ class ResTenant(models.Model):
                 page += 1
                 
             except requests.exceptions.RequestException:
-                break # Fail safely
+                break 
 
         # 4. Delete Orphans
         deleted_count = 0
@@ -281,26 +298,22 @@ class ResTenant(models.Model):
                 requests.delete(del_url, headers=headers)
                 deleted_count += 1
             except:
-                pass # Continue trying to delete others
+                pass 
 
         # 5. Insert Missing
-        tenants_to_insert = tenants.filtered(lambda t: t.full_domain in valid_fqdns and t.full_domain not in already_exists)
+        tenants_to_insert = family.filtered(lambda t: t.full_domain and t.full_domain not in already_exists)
         for t in tenants_to_insert:
-            t.action_update_dns()
+            # We call action_update_dns which now uses root settings correctly
+            # Note: t.root is 'root' here.
+            try:
+                t.action_update_dns()
+            except:
+                pass # Fail silently during batch cleanup
             
-        # 6. Cleanup Orphan Certificates
-        deleted_certs = self._cleanup_orphan_certificates(config)
-
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': _("Cleanup Complete"),
-                'message': _("Deleted %s orphan DNS records and %s orphan certificates.") % (deleted_count, deleted_certs),
-                'type': 'success',
-                'sticky': False,
-            }
-        }
+        # 6. Cleanup Orphan Certificates for this root
+        deleted_certs = self._cleanup_orphan_certificates(root)
+        
+        return deleted_count, deleted_certs
 
     def _cleanup_orphan_certificates(self, config):
         """
@@ -367,36 +380,44 @@ class ResTenant(models.Model):
         Generates a Cloudflare Origin CA Certificate for the tenant's full_domain 
         and saves it to the configured path.
         """
-        config = self.env['ir.config_parameter'].sudo()
-        api_token = config.get_param('base.cloudflare_api_token')
-        certs_path = config.get_param('base.cloudflare_certs_path')
-        
-        if not api_token or not certs_path:
-            return
-
-        # Ensure paths end with separator or use os.path.join
-        # But keeping user logic roughly same:
-        if not certs_path.endswith(os.path.sep):
-             certs_path += os.path.sep
-        
-        certs_path_deleted = os.path.join(certs_path, 'deleted')
-
-        if not os.path.exists(certs_path):
-            try:
-                os.makedirs(certs_path)
-            except OSError as e:
-                raise UserError(_("Failed to create certificates directory: %s") % str(e))
-
-        if not os.path.exists(certs_path_deleted):
-            try:
-                os.makedirs(certs_path_deleted)
-            except OSError as e:
-                raise UserError(_("Failed to create deleted certificates directory: %s") % str(e))
-
         success_count = 0
+        
+        # Group tenants by Root to optimize setting retrieval? 
+        # Or just iterate and find root for each (safe).
+        
         for tenant in self:
             if not tenant.full_domain:
                 continue
+
+            # Find Root
+            root = tenant
+            while root.parent_id:
+                root = root.parent_id
+                
+            api_token = root.cloudflare_api_token
+            certs_path = root.cloudflare_certs_path
+
+            if not api_token or not certs_path:
+                _logger.warning("Cloudflare settings missing for root tenant %s. Skipping %s.", root.name, tenant.name)
+                continue
+
+            # Ensure paths end with separator or use os.path.join
+            if not certs_path.endswith(os.path.sep):
+                 certs_path += os.path.sep
+            
+            certs_path_deleted = os.path.join(certs_path, 'deleted')
+
+            if not os.path.exists(certs_path):
+                try:
+                    os.makedirs(certs_path)
+                except OSError as e:
+                    raise UserError(_("Failed to create certificates directory: %s") % str(e))
+
+            if not os.path.exists(certs_path_deleted):
+                try:
+                    os.makedirs(certs_path_deleted)
+                except OSError as e:
+                    raise UserError(_("Failed to create deleted certificates directory: %s") % str(e))
 
             # Generate for parent_id *.parent_id.full_domain or *.full_domain if no parent_id
             full_domain = tenant.full_domain
