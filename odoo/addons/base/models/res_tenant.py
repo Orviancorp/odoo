@@ -75,8 +75,6 @@ class ResTenant(models.Model):
         for tenant in self:
             if not re.match(r'^[a-z0-9]+(?:-[a-z0-9]+)*$', tenant.subdomain):
                 raise ValidationError(_("Subdomain must be 'slug-safe': lowercase letters, numbers, and hyphens only. It cannot start or end with a hyphen."))
-            if len(tenant.subdomain) < 3 or len(tenant.subdomain) > 63:
-                raise ValidationError(_("Subdomain validation error: length must be between 3 and 63 characters."))
 
     @api.depends('subdomain', 'parent_id.full_subdomain')
     def _compute_full_subdomain(self):
