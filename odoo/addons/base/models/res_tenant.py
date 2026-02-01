@@ -34,7 +34,7 @@ class ResTenant(models.Model):
     parent_path = fields.Char(index=True)
 
     # Identity / Domain
-    subdomain = fields.Char(string='Subdomain', required=True, index=True,
+    subdomain = fields.Char(string='Subdomain', required=False, index=True,
                             help="Slug used for tenant identification.")
     full_subdomain = fields.Char(string='Full Subdomain', compute='_compute_full_subdomain', store=True, index=True,
                                  recursive=True, help="Hierarchical subdomain.")
@@ -93,10 +93,13 @@ class ResTenant(models.Model):
         if not self._check_recursion():
             raise ValidationError(_('You cannot create recursive hierarchy.'))
 
-    @api.constrains('subdomain')
+    @api.constrains('subdomain', 'parent_id')
     def _check_subdomain(self):
         for tenant in self:
-            if not re.match(r'^[a-z0-9]+(?:-[a-z0-9]+)*$', tenant.subdomain):
+            if tenant.parent_id and not tenant.subdomain:
+                raise ValidationError(_("Subdomain is required for Child Tenants."))
+                
+            if tenant.subdomain and not re.match(r'^[a-z0-9]+(?:-[a-z0-9]+)*$', tenant.subdomain):
                 raise ValidationError(_("Subdomain must be 'slug-safe': lowercase letters, numbers, and hyphens only. It cannot start or end with a hyphen."))
 
     @api.onchange('parent_id')
@@ -118,13 +121,16 @@ class ResTenant(models.Model):
             if tenant.parent_id and tenant.parent_id.full_subdomain:
                 tenant.full_subdomain = f"{tenant.subdomain}.{tenant.parent_id.full_subdomain}"
             else:
-                tenant.full_subdomain = tenant.subdomain
+                tenant.full_subdomain = tenant.subdomain or False
 
-    @api.depends('full_subdomain')
+    @api.depends('full_subdomain', 'base_domain')
     def _compute_full_domain(self):
         for tenant in self:
-            if tenant.full_subdomain and tenant.base_domain:
-                tenant.full_domain = f"{tenant.full_subdomain}.{tenant.base_domain}"
+            if tenant.base_domain:
+                if tenant.full_subdomain:
+                    tenant.full_domain = f"{tenant.full_subdomain}.{tenant.base_domain}"
+                else:
+                    tenant.full_domain = tenant.base_domain
             else:
                 tenant.full_domain = False
 
