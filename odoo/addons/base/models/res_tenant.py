@@ -320,6 +320,8 @@ class ResTenant(models.Model):
                 response = requests.post(url, json=data, headers=headers)
                 response.raise_for_status()
                 result = response.json()
+
+                _logger.info(result)
                 
                 if not result.get('success'):
                     errors = result.get('errors', [])
