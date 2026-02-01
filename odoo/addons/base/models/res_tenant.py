@@ -5,6 +5,12 @@ import logging
 import re
 import requests
 import os
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
+from cryptography.x509.oid import NameOID
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError, UserError
 
@@ -302,43 +308,71 @@ class ResTenant(models.Model):
                 _logger.info("Certificate for %s already exists at %s. Skipping.", tenant.full_domain, combined_filename)
                 continue
 
-            # Cloudflare Origin CA API
+            # 1. Generate Private Key
+            key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=2048,
+                backend=default_backend()
+            )
+            
+            # 2. Generate CSR
+            csr = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
+                x509.NameAttribute(NameOID.COMMON_NAME, tenant.full_domain),
+            ])).add_extension(
+                x509.SubjectAlternativeName([
+                    x509.DNSName(tenant.full_domain),
+                    x509.DNSName(f"*.{tenant.full_domain}"),
+                ]),
+                critical=False,
+            ).sign(key, hashes.SHA256(), default_backend())
+
+            csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode('utf-8')
+            
+            # Serialize Private Key for saving later
+            private_key_pem = key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=serialization.NoEncryption()
+            ).decode('utf-8')
+
+            # 3. Cloudflare Origin CA API
             url = "https://api.cloudflare.com/client/v4/certificates"
             headers = {
-                "Authorization": f"Bearer {api_token}", # Ensure Token has 'Zone.Origin CA' permission
+                "Authorization": f"Bearer {api_token}",
                 "Content-Type": "application/json"
             }
-            # Payload: 15 years validity (5475 days), RSA, for the single host
+            
+            # Payload: CSR is required. request_type=origin-rsa matches the CSR key type.
             data = {
-                "hostnames": [tenant.full_domain],
+                "hostnames": [tenant.full_domain, f"*.{tenant.full_domain}"],
                 "requested_validity": 5475,
-                "request_type": "origin-rsa"
+                "request_type": "origin-rsa",
+                "csr": csr_pem
             }
 
             try:
                 response = requests.post(url, json=data, headers=headers)
-                _logger.info(response.text)
+                # _logger.info(response.text)
                 response.raise_for_status()
                 result = response.json()
-               
+                
                 if not result.get('success'):
                     errors = result.get('errors', [])
                     msg = ", ".join([e.get('message', 'Unknown error') for e in errors])
                     _logger.error("Certificate generation failed for %s: %s", tenant.full_domain, msg)
-                    # We might want to raise error or continue? 
-                    # If multiple selected, continue and log.
                     continue
                 
                 cert_data = result['result']
                 certificate = cert_data['certificate']
-                private_key = cert_data['private_key']
+                # Cloudflare returns the certificate. We use our local private key.
                 
                 with open(combined_filename, 'w') as f:
-                    f.write(private_key)
-                    # Ensure newline separation
-                    if not private_key.endswith('\n'):
+                    f.write(private_key_pem)
+                    if not private_key_pem.endswith('\n'):
                         f.write('\n')
                     f.write(certificate)
+                    
+                success_count += 1
                     
                 success_count += 1
                 
