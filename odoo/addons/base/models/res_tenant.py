@@ -252,7 +252,10 @@ class ResTenant(models.Model):
                 pass # Continue trying to delete others
 
         # 5. Insert Missing
+        _logger.info(to_insert)
+        _logger.info(already_exists)
         tenants_to_insert = tenants.filtered(lambda t: t.full_domain in to_insert and t.full_domain not in already_exists)
+        _logger.info(tenants_to_insert)
         for t in tenants_to_insert:
             t.action_update_dns()
 
