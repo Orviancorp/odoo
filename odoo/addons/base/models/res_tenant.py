@@ -312,8 +312,7 @@ class ResTenant(models.Model):
             data = {
                 "hostnames": [tenant.full_domain],
                 "requested_validity": 5475,
-                "request_type": "origin-rsa",
-                "csr": None # Let CF generate the keypair
+                "request_type": "origin-rsa"
             }
 
             try:
