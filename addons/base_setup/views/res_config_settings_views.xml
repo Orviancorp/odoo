@@ -139,7 +139,7 @@
                         <setting id="cloudflare_zone_id" help="The Zone ID for the domain in Cloudflare.">
                             <field name="cloudflare_zone_id"/>
                         </setting>
-                        <setting id="main_system_url" help="The main system domain (e.g. orviancorp.com).">
+                        <setting id="main_system_url" help="The main system domain (e.g. domain.com).">
                             <field name="main_system_url"/>
                         </setting>
                     </block>

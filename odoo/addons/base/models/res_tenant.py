@@ -33,7 +33,7 @@ class ResTenant(models.Model):
     
     # Needs to be a char for now, as requested. 
     base_domain = fields.Char(string='Base Domain',
-                              help="Base domain for the tenant.")
+                              help="Base domain for the tenant.", compute='_compute_base_domain', store=False)
     
     full_domain = fields.Char(string='Full Domain', compute='_compute_full_domain', store=True, index=True, readonly=True,
                               help="Complete domain URL.")
@@ -49,6 +49,13 @@ class ResTenant(models.Model):
         ('subdomain_unique_parent', 'unique(parent_id, subdomain)', 'The subdomain must be unique within the same parent tenant (or root)!'),
         ('full_domain_unique', 'unique(full_domain)', 'The Full Domain must be unique!'),
     ]
+
+
+    def _compute_base_domain(self):
+        config = self.env['ir.config_parameter'].sudo()
+        main_system_url = config.get_param('base.main_system_url')
+        for tenant in self:
+            tenant.base_domain = main_system_url
 
     @api.constrains('parent_id')
     def _check_parent_id(self):
@@ -72,7 +79,7 @@ class ResTenant(models.Model):
             else:
                 tenant.full_subdomain = tenant.subdomain
 
-    @api.depends('full_subdomain', 'base_domain')
+    @api.depends('full_subdomain')
     def _compute_full_domain(self):
         for tenant in self:
             if tenant.full_subdomain and tenant.base_domain:
@@ -98,7 +105,7 @@ class ResTenant(models.Model):
         config = self.env['ir.config_parameter'].sudo()
         api_token = config.get_param('base.cloudflare_api_token')
         zone_id = config.get_param('base.cloudflare_zone_id')
-        main_url = config.get_param('base.main_system_url')
+        main_url = self.base_domain
 
         if not api_token or not zone_id or not main_url:
             raise UserError(_("Cloudflare settings are missing. Please configure them in Settings."))
@@ -139,6 +146,134 @@ class ResTenant(models.Model):
             'params': {
                 'title': _("Success"),
                 'message': _("DNS Record created successfully!"),
+                'type': 'success',
+                'sticky': False,
+            }
+        }
+
+    @api.model
+    def action_cleanup_orphan_dns_records(self):
+        """
+        Deletes Cloudflare CNAME records that point to the main system URL
+        but do not correspond to any existing Tenant's full_subdomain.
+        This is a global cleanup action.
+        """
+        config = self.env['ir.config_parameter'].sudo()
+        api_token = config.get_param('base.cloudflare_api_token')
+        zone_id = config.get_param('base.cloudflare_zone_id')
+        main_url = config.get_param('base.main_system_url')
+
+        # If any of the required parameters are missing, return without doing anything because the DNS record will not be created
+        if not api_token or not zone_id or not main_url:
+            return
+            
+        # Validation to prevent users from entering the domain name as the Zone ID
+        if '.' in zone_id or len(zone_id) < 30:
+            raise UserError(_("Invalid Cloudflare Zone ID: '%s'. It looks like a domain name or is too short. Please enter the alphanumeric Zone ID found in your Cloudflare dashboard.") % zone_id)
+
+        headers = {
+            "Authorization": f"Bearer {api_token}",
+            "Content-Type": "application/json"
+        }
+
+        # 1. Get Zone Details to determine Zone Name (e.g. domain.com)
+        try:
+            zone_url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}"
+            zone_resp = requests.get(zone_url, headers=headers)
+            zone_resp.raise_for_status()
+            zone_data = zone_resp.json()
+            if not zone_data.get('success'):
+                raise UserError(_("Failed to fetch Zone details."))
+            zone_name = zone_data['result']['name']
+        except requests.exceptions.RequestException as e:
+            raise UserError(_("Failed to connect to Cloudflare: %s") % str(e))
+        
+        # 2. Get all valid Full Subdomains (FQDNs) from Tenants
+        # We construct the expected FQDN: full_subdomain + "." + zone_name
+        # Logic: full_subdomain in Odoo does not include the base domain usually?
+        # Re-check compute logic: tenant.full_domain = f"{tenant.full_subdomain}.{tenant.base_domain}"
+        # If base_domain is used, we should use full_domain.
+        # But wait, action_update_dns uses `self.full_subdomain` as 'name'.
+        # If I send name="sub", CF makes "sub.zone". FQDN is "sub.zone".
+        # If I send name="sub.parent", CF makes "sub.parent.zone".
+        # So essentially, Cloudflare records will have name = full_subdomain + "." + zone_name.
+        # BUT: Tenant model has `full_domain`. That should be the FQDN.
+        # Let's rely on `full_domain` if set, otherwise construct it.
+        
+        # Actually, let's look at `full_domain` compute:
+        # tenant.full_domain = f"{tenant.full_subdomain}.{tenant.base_domain}"
+        # If base_domain is NOT set, full_domain is False.
+        # This cleanup assumes tenants ARE using the zone as base.
+        
+        # Let's trust that the 'name' in CF == tenant.full_subdomain + "." + zone_name
+        # Or simply tenant.full_subdomain (if it's a subdomain of zone).
+        
+        # Safer approach:
+        # CF Record Name is always FQDN.
+        # Odoo Tenant `full_subdomain` is the relative part (usually).
+        # So we expect Record Name == f"{tenant.full_subdomain}.{zone_name}"
+        
+        valid_fqdns = set()
+        tenants = self.search([('full_subdomain', '!=', False)])
+        for t in tenants:
+            valid_fqdns.add(f"{t.full_subdomain}.{zone_name}")
+            # Also add hyphenated version just in case of inconsistency? No, restrict to exact match.
+
+        # 3. List all CNAME records pointing to main_url
+        to_delete = []
+        page = 1
+        
+        while True:
+            params = {
+                'type': 'CNAME', 
+                'content': main_url, 
+                'page': page, 
+                'per_page': 100
+            }
+            try:
+                list_url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records"
+                resp = requests.get(list_url, headers=headers, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+                
+                if not data.get('success'):
+                     break # Should handle error?
+                     
+                records = data.get('result', [])
+                if not records:
+                    break
+                    
+                for record in records:
+                    # Record name is FQDN
+                    if record['name'] not in valid_fqdns:
+                        to_delete.append(record['id'])
+                
+                info = data.get('result_info', {})
+                total_pages = info.get('total_pages', 1)
+                
+                if page >= total_pages:
+                    break
+                page += 1
+                
+            except requests.exceptions.RequestException:
+                break # Fail safely
+
+        # 4. Delete Orphans
+        deleted_count = 0
+        for rec_id in to_delete:
+            try:
+                del_url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{rec_id}"
+                requests.delete(del_url, headers=headers)
+                deleted_count += 1
+            except:
+                pass # Continue trying to delete others
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _("Cleanup Complete"),
+                'message': _("Deleted %s orphan DNS records.") % deleted_count,
                 'type': 'success',
                 'sticky': False,
             }

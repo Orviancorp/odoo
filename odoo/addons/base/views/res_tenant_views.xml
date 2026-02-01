@@ -3,6 +3,15 @@
     <data>
 
         <!-- Search View -->
+        <record id="action_cleanup_dns" model="ir.actions.server">
+            <field name="name">Cleanup Orphean DNS</field>
+            <field name="model_id" ref="model_res_tenant"/>
+            <field name="binding_model_id" ref="model_res_tenant"/>
+            <field name="binding_view_types">list</field>
+            <field name="state">code</field>
+            <field name="code">action = model.action_cleanup_orphan_dns_records()</field>
+        </record>
+
         <record id="view_res_tenant_search" model="ir.ui.view">
             <field name="name">res.tenant.search</field>
             <field name="model">res.tenant</field>

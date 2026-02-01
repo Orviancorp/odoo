@@ -48,7 +48,7 @@ class ResConfigSettings(models.TransientModel):
     # Cloudflare Integration
     cloudflare_api_token = fields.Char(string="Cloudflare API Token", config_parameter='base.cloudflare_api_token', help="API Token with DNS Edit permissions.")
     cloudflare_zone_id = fields.Char(string="Cloudflare Zone ID", config_parameter='base.cloudflare_zone_id', help="The Zone ID for the domain in Cloudflare.")
-    main_system_url = fields.Char(string="Main System URL", config_parameter='base.main_system_url', default='orviancorp.com', help="The main domain (e.g. orviancorp.com).")
+    main_system_url = fields.Char(string="Main System URL", config_parameter='base.main_system_url', help="The main domain (e.g. domain.com).")
 
     def open_company(self):
         return {

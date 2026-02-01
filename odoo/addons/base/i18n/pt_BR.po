@@ -61028,3 +61028,16 @@ msgstr "Erro na API Cloudflare: %s"
 msgid "Failed to connect to Cloudflare: %s"
 msgstr "Falha ao conectar ao Cloudflare: %s"
 
+
+msgid "Cleanup Complete"
+msgstr "Limpeza Concluída"
+
+msgid "Deleted %s orphan DNS records."
+msgstr "Excluídos %s registros DNS órfãos."
+
+msgid "Failed to fetch Zone details."
+msgstr "Falha ao buscar detalhes da Zona."
+
+msgid "Cleanup Orphean DNS"
+msgstr "Limpar DNS Órfãos"
+
