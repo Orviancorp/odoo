@@ -133,6 +133,7 @@ class ResTenant(models.Model):
 
         try:
             response = requests.post(url, json=data, headers=headers)
+            _logger.info(response.text)
             # Check for HTTP errors first
             response.raise_for_status()
             
