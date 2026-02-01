@@ -287,6 +287,10 @@ class ResTenant(models.Model):
         Does NOT delete the certificate for the Main System URL.
         """
         certs_path = config.get_param('base.cloudflare_certs_path')
+        # add / at the end of the path if it's not there
+        if not certs_path.endswith('/'):
+            certs_path += '/' 
+        certs_path_deleted = certs_path + 'deleted/' 
         main_url = config.get_param('base.main_system_url')
         
         if not certs_path or not os.path.exists(certs_path):
@@ -318,10 +322,9 @@ class ResTenant(models.Model):
             # Logic: We stored as `safe_name.pem`. 
             # So if `safe_name` is in allowlist, keep it.
             name_no_ext = os.path.splitext(filename)[0]
-            _logger.info(name_no_ext)
             if name_no_ext not in allowlist:
                 try:
-                    os.remove(file_path)
+                    os.rename(file_path, os.path.join(certs_path_deleted, filename))
                     _logger.info("Deleted orphan certificate: %s", file_path)
                     deleted_count += 1
                 except OSError as e:
@@ -337,6 +340,10 @@ class ResTenant(models.Model):
         config = self.env['ir.config_parameter'].sudo()
         api_token = config.get_param('base.cloudflare_api_token')
         certs_path = config.get_param('base.cloudflare_certs_path')
+        # add / at the end of the path if it's not there
+        if not certs_path.endswith('/'):
+            certs_path += '/' 
+        certs_path_deleted = certs_path + 'deleted/' 
 
         if not api_token or not certs_path:
             return
@@ -347,17 +354,34 @@ class ResTenant(models.Model):
             except OSError as e:
                 raise UserError(_("Failed to create certificates directory: %s") % str(e))
 
+        if not os.path.exists(certs_path_deleted):
+            try:
+                os.makedirs(certs_path_deleted)
+            except OSError as e:
+                raise UserError(_("Failed to create deleted certificates directory: %s") % str(e))
+
         success_count = 0
         for tenant in self:
             if not tenant.full_domain:
                 continue
 
+            # Generate for parent_id *.parent_id.full_domain or *.full_domain if no parent_id
+            full_domain = tenant.full_domain
+            if tenant.parent_id:
+                full_domain = tenant.parent_id.full_domain
+
             # Check if cert already exists
-            safe_name = tenant.full_domain.replace('*', 'wildcard')
+            safe_name = full_domain.replace('*', 'wildcard')
             combined_filename = os.path.join(certs_path, f"{safe_name}.pem")
             
             if os.path.exists(combined_filename):
-                _logger.info("Certificate for %s already exists at %s. Skipping.", tenant.full_domain, combined_filename)
+                _logger.info("Certificate for %s already exists at %s. Skipping.", full_domain, combined_filename)
+                continue
+
+            if os.path.exists(os.path.join(certs_path_deleted, f"{safe_name}.pem")):
+                os.rename(os.path.join(certs_path_deleted, f"{safe_name}.pem"), combined_filename)
+                _logger.info("Certificate for %s already exists at %s. Restored.", full_domain, combined_filename)
+                success_count += 1
                 continue
 
             # 1. Generate Private Key
@@ -369,11 +393,11 @@ class ResTenant(models.Model):
             
             # 2. Generate CSR
             csr = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
-                x509.NameAttribute(NameOID.COMMON_NAME, tenant.full_domain),
+                x509.NameAttribute(NameOID.COMMON_NAME, full_domain),
             ])).add_extension(
                 x509.SubjectAlternativeName([
-                    x509.DNSName(tenant.full_domain),
-                    x509.DNSName(f"*.{tenant.full_domain}"),
+                    x509.DNSName(full_domain),
+                    x509.DNSName(f"*.{full_domain}"),
                 ]),
                 critical=False,
             ).sign(key, hashes.SHA256(), default_backend())
@@ -396,7 +420,7 @@ class ResTenant(models.Model):
             
             # Payload: CSR is required. request_type=origin-rsa matches the CSR key type.
             data = {
-                "hostnames": [tenant.full_domain, f"*.{tenant.full_domain}"],
+                "hostnames": [full_domain, f"*.{full_domain}"],
                 "requested_validity": 5475,
                 "request_type": "origin-rsa",
                 "csr": csr_pem
@@ -411,7 +435,7 @@ class ResTenant(models.Model):
                 if not result.get('success'):
                     errors = result.get('errors', [])
                     msg = ", ".join([e.get('message', 'Unknown error') for e in errors])
-                    _logger.error("Certificate generation failed for %s: %s", tenant.full_domain, msg)
+                    _logger.error("Certificate generation failed for %s: %s", full_domain, msg)
                     continue
                 
                 cert_data = result['result']
