@@ -293,6 +293,14 @@ class ResTenant(models.Model):
         
         if not certs_path or not os.path.exists(certs_path):
             return 0
+
+        # Ensure deleted directory exists
+        if not os.path.exists(certs_path_deleted):
+            try:
+                os.makedirs(certs_path_deleted)
+            except OSError as e:
+                _logger.error("Failed to create deleted certificates directory: %s", e)
+                return 0
             
         # 1. Allowlist: Active Tenants + Main URL
         allowlist = set()
@@ -306,10 +314,17 @@ class ResTenant(models.Model):
 
         tenants = self.sudo().search([('full_domain', '!=', False)])
         for t in tenants:
-            allowlist.add(t.full_domain)
-            safe_name = t.full_domain.replace('*', 'wildcard')
+            full_domain = t.full_domain
+            # Logic must match generation: if parent, we generate/keep parent domain cert
+            if t.parent_id:
+                full_domain = t.parent_id.full_domain
+            
+            allowlist.add(full_domain)
+            safe_name = full_domain.replace('*', 'wildcard')
             allowlist.add(safe_name)
-        _logger.info(allowlist)
+            
+        _logger.info("Certificate Cleanup Allowlist: %s", allowlist)
+        
         # 2. Iterate and Delete
         deleted_count = 0
         # Check all .pem files
@@ -338,13 +353,16 @@ class ResTenant(models.Model):
         config = self.env['ir.config_parameter'].sudo()
         api_token = config.get_param('base.cloudflare_api_token')
         certs_path = config.get_param('base.cloudflare_certs_path')
-        # add / at the end of the path if it's not there
-        if not certs_path.endswith('/'):
-            certs_path += '/' 
-        certs_path_deleted = certs_path + 'deleted/' 
-
+        
         if not api_token or not certs_path:
             return
+
+        # Ensure paths end with separator or use os.path.join
+        # But keeping user logic roughly same:
+        if not certs_path.endswith(os.path.sep):
+             certs_path += os.path.sep
+        
+        certs_path_deleted = os.path.join(certs_path, 'deleted')
 
         if not os.path.exists(certs_path):
             try:
@@ -376,10 +394,15 @@ class ResTenant(models.Model):
                 _logger.info("Certificate for %s already exists at %s. Skipping.", full_domain, combined_filename)
                 continue
 
-            if os.path.exists(os.path.join(certs_path_deleted, f"{safe_name}.pem")):
-                os.rename(os.path.join(certs_path_deleted, f"{safe_name}.pem"), combined_filename)
-                _logger.info("Certificate for %s already exists at %s. Restored.", full_domain, combined_filename)
-                success_count += 1
+            # Check if exists in deleted folder and restore
+            deleted_filename = os.path.join(certs_path_deleted, f"{safe_name}.pem")
+            if os.path.exists(deleted_filename):
+                try:
+                    os.rename(deleted_filename, combined_filename)
+                    _logger.info("Certificate for %s restored from %s.", full_domain, deleted_filename)
+                    success_count += 1
+                except OSError as e:
+                    _logger.error("Failed to restore certificate for %s: %s", full_domain, e)
                 continue
 
             # 1. Generate Private Key
@@ -445,8 +468,6 @@ class ResTenant(models.Model):
                     if not private_key_pem.endswith('\n'):
                         f.write('\n')
                     f.write(certificate)
-                    
-                success_count += 1
                     
                 success_count += 1
                 
