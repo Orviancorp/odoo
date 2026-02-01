@@ -48,8 +48,8 @@ class IrRule(models.Model):
             'user': self.env.user.with_context({}),
             'company_ids': self.env.companies.ids,
             'company_id': self.env.company.id,
-            'tenant_ids': self.env.tenant_ids.ids,
-            'tenant_id': self.env.tenant_id.id,
+            'tenant_ids': self.env.tenants.ids,
+            'tenant_id': self.env.tenant.id,
         }
 
     @api.depends('groups')
