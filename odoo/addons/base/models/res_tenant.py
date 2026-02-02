@@ -327,17 +327,21 @@ class ResTenant(models.Model):
         
         return deleted_count, deleted_certs
 
-    def _cleanup_orphan_certificates(self, config):
+    def _cleanup_orphan_certificates(self, root):
         """
         Deletes certificate files (.pem) that do not correspond to any active tenant.
         Does NOT delete the certificate for the Main System URL.
         """
-        certs_path = config.get_param('base.cloudflare_certs_path')
+        config = root # Renaming for minimal diff if needed, but better to use root
+        certs_path = root.cloudflare_certs_path
         # add / at the end of the path if it's not there
-        if not certs_path.endswith('/'):
-            certs_path += '/' 
+        if not certs_path or not certs_path.endswith('/'):
+             if certs_path:
+                certs_path += '/' 
+        
+        main_url = root.base_domain
+        
         certs_path_deleted = certs_path + 'deleted/' 
-        main_url = config.get_param('base.main_system_url')
         
         if not certs_path or not os.path.exists(certs_path):
             return 0
