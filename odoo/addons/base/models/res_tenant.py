@@ -21,7 +21,7 @@ _logger = logging.getLogger(__name__)
 class ResTenant(models.Model):
     _name = "res.tenant"
     _description = "Tenant"
-    _order = "parent_path"
+    _order = "hierarchy_order"
     _parent_store = True
 
     name = fields.Char(string='Name', required=True, index=True)
@@ -66,6 +66,21 @@ class ResTenant(models.Model):
 
     url = fields.Char(string='URL', compute='_compute_url', store=True,
                       help="Full URL for the tenant.")
+
+    # Hierarchy Sorting
+    hierarchy_order = fields.Char(string='Hierarchy Order', compute='_compute_hierarchy_order', store=True, index=True, recursive=True)
+
+    @api.depends('parent_id.hierarchy_order', 'sequence', 'name', 'id')
+    def _compute_hierarchy_order(self):
+        for tenant in self:
+            # Sort Key: Sequence (padded) + ID (padded)
+            # This ensures siblings are sorted by sequence, then by ID (creation order)
+            # and grouped correctly under parents.
+            current_order_key = f"{tenant.sequence:05d}-{tenant.id:05d}"
+            if tenant.parent_id and tenant.parent_id.hierarchy_order:
+                tenant.hierarchy_order = f"{tenant.parent_id.hierarchy_order}/{current_order_key}"
+            else:
+                tenant.hierarchy_order = current_order_key
 
     # Access
     user_ids = fields.Many2many('res.users', string='Users', help="Users allowed to access this tenant.")
