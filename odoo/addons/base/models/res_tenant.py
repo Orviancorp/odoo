@@ -70,13 +70,12 @@ class ResTenant(models.Model):
     # Hierarchy Sorting
     hierarchy_order = fields.Char(string='Hierarchy Order', compute='_compute_hierarchy_order', store=True, index=True, recursive=True)
 
-    @api.depends('parent_id.hierarchy_order', 'sequence', 'name', 'id')
+    @api.depends('parent_id.hierarchy_order', 'sequence', 'name')
     def _compute_hierarchy_order(self):
         for tenant in self:
-            # Sort Key: Sequence (padded) + ID (padded)
-            # This ensures siblings are sorted by sequence, then by ID (creation order)
-            # and grouped correctly under parents.
-            current_order_key = f"{tenant.sequence:05d}-{tenant.id:05d}"
+            # Sort Key: Sequence (padded) + Name (normalized)
+            safe_name = re.sub(r'\W+', '', tenant.name or '').lower()
+            current_order_key = f"{tenant.sequence:05d}-{safe_name}"
             if tenant.parent_id and tenant.parent_id.hierarchy_order:
                 tenant.hierarchy_order = f"{tenant.parent_id.hierarchy_order}/{current_order_key}"
             else:
