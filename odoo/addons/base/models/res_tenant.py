@@ -21,7 +21,7 @@ _logger = logging.getLogger(__name__)
 class ResTenant(models.Model):
     _name = "res.tenant"
     _description = "Tenant"
-    _order = "sequence, name"
+    _order = "parent_path"
     _parent_store = True
 
     name = fields.Char(string='Name', required=True, index=True)
