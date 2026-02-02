@@ -42,7 +42,7 @@ class ResTenant(models.Model):
     # Needs to be a char for now, as requested. 
     # Base Domain: Editable for Root, Inherited for Child
     base_domain = fields.Char(string='Base Domain', help="Base domain for the tenant (e.g. orviancorp.com).", 
-                              compute='_compute_base_domain', store=True, readonly=False)
+                              compute='_compute_base_domain', store=True, readonly=False, recursive=True)
     
     # Cloudflare Settings (Root Tenant only)
     cloudflare_api_token = fields.Char(string="Cloudflare API Token", help="API Token with DNS Edit permissions. Only for Root Tenants.")
