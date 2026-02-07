@@ -83,7 +83,7 @@ class ResTenant(models.Model):
                 tenant.hierarchy_order = current_order_key
 
     # Access
-    user_ids = fields.Many2many('res.users', string='Users', help="Users allowed to access this tenant.")
+    user_ids = fields.Many2many('res.users', 'res_tenant_users_rel', 'tid', 'user_id', string='Users', help="Users allowed to access this tenant.")
     user_count = fields.Integer(string='User Count', compute='_compute_user_count')
 
     _sql_constraints = [
