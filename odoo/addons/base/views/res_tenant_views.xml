@@ -48,7 +48,6 @@
             <field name="model">res.tenant</field>
             <field name="arch" type="xml">
                 <list string="Tenants">
-                    <field name="sequence" widget="handle"/>
                     <field name="name"/>
                     <field name="subdomain"/>
                     <field name="full_domain"/>
