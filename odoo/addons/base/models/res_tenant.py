@@ -26,7 +26,6 @@ class ResTenant(models.Model):
 
     name = fields.Char(string='Name', required=True, index=True)
     active = fields.Boolean(default=True)
-    sequence = fields.Integer(default=10)
 
     # Hierarchy
     parent_id = fields.Many2one('res.tenant', string='Parent Tenant', index=True, ondelete='cascade')
@@ -70,13 +69,13 @@ class ResTenant(models.Model):
     # Hierarchy Sorting
     hierarchy_order = fields.Char(string='Hierarchy Order', compute='_compute_hierarchy_order', store=True, index=True, recursive=True)
 
-    @api.depends('parent_id.hierarchy_order', 'sequence', 'subdomain')
+    @api.depends('parent_id.hierarchy_order', 'subdomain')
     def _compute_hierarchy_order(self):
         for tenant in self:
-            # Sort Key: Sequence (padded) + Subdomain (or 'root' for Root Tenants)
+            # Sort Key: id (padded) + Subdomain (or 'root' for Root Tenants)
             slug = tenant.subdomain or 'root'
             safe_slug = re.sub(r'\W+', '', slug).lower()
-            current_order_key = f"{tenant.sequence:05d}-{safe_slug}"
+            current_order_key = f"{tenant.id:10d}-{safe_slug}"
             
             if tenant.parent_id and tenant.parent_id.hierarchy_order:
                 tenant.hierarchy_order = f"{tenant.parent_id.hierarchy_order}/{current_order_key}"
