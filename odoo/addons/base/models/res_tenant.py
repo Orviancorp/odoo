@@ -27,6 +27,14 @@ class ResTenant(models.Model):
     name = fields.Char(string='Name', required=True, index=True)
     active = fields.Boolean(default=True)
 
+    @api.depends('name', 'parent_id.display_name')
+    def _compute_display_name(self):
+        for tenant in self:
+            if tenant.parent_id:
+                tenant.display_name = f"{tenant.parent_id.display_name} / {tenant.name}"
+            else:
+                tenant.display_name = tenant.name
+
     # Hierarchy
     parent_id = fields.Many2one('res.tenant', string='Parent Tenant', index=True, ondelete='cascade')
     child_ids = fields.One2many('res.tenant', 'parent_id', string='Child Tenants')
