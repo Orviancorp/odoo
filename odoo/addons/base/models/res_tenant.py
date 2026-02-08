@@ -28,6 +28,8 @@ class ResTenant(models.Model):
     name = fields.Char(string='Name', required=True, index=True)
     active = fields.Boolean(default=True)
 
+    display_name = fields.Char(string='Display Name', compute='_compute_display_name', recursive=True, store=True, index=True)
+
     @api.depends('name', 'parent_id.display_name')
     def _compute_display_name(self):
         for tenant in self:
