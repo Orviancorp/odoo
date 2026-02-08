@@ -97,10 +97,14 @@ class ResTenant(models.Model):
     user_ids = fields.Many2many('res.users', 'res_tenant_users_rel', 'tid', 'user_id', string='Users', help="Users allowed to access this tenant.")
     user_count = fields.Integer(string='User Count', compute='_compute_user_count')
 
-    _sql_constraints = [
-        ('subdomain_unique_parent', 'unique(parent_id, subdomain)', 'The subdomain must be unique within the same parent tenant (or root)!'),
-        ('full_domain_unique', 'unique(full_domain)', 'The Full Domain must be unique!'),
-    ]
+    subdomain_unique_parent = models.Constraint(
+        'unique(parent_id, subdomain)',
+        'The subdomain must be unique within the same parent tenant (or root)!'
+    )
+    full_domain_unique = models.Constraint(
+        'unique(full_domain)',
+        'The Full Domain must be unique!'
+    )
 
 
     @api.depends('parent_id', 'parent_id.base_domain')
