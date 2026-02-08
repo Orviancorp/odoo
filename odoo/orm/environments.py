@@ -286,11 +286,11 @@ class Environment(Mapping[str, "BaseModel"]):
     def tenant(self) -> BaseModel:
         """Return the current tenant (as an instance).
 
-        If not specified in the context (`allowed_tenant_ids`),
+        If not specified in the context (`allowed_tenant_id`),
         fallback on current user main tenant.
 
-        :raise AccessError: invalid or unauthorized `allowed_tenant_ids` context key content.
-        :return: current tenant (default=`self.user.tenant_id`), with the current environment
+        :raise AccessError: invalid or unauthorized `allowed_tenant_id` context key content.
+        :return: current tenant (default=`self.user.tenant_ids[0]`), with the current environment
         :rtype: :class:`res.tenant record<~odoo.addons.base.models.res_tenant.Tenant>`
 
         .. warning::
@@ -303,23 +303,28 @@ class Environment(Mapping[str, "BaseModel"]):
             even if the current user doesn't have access to
             the targeted tenant.
         """
-        tenant_ids = self.context.get('allowed_tenant_ids', [])
-        if tenant_ids:
+        tenant_id = self.context.get('allowed_tenant_id')
+        if tenant_id:
             if not self.su:
                 user_tenant_ids = self.user._get_tenant_ids()
-                if set(tenant_ids) - set(user_tenant_ids):
-                    raise AccessError(self._("Access to unauthorized or invalid tenants."))
-            return self['res.tenant'].browse(tenant_ids[0])
-        return self.user.tenant_id.with_env(self)
+                if tenant_id not in user_tenant_ids:
+                    raise AccessError(self._("Access to unauthorized or invalid tenant."))
+            return self['res.tenant'].browse(tenant_id)
+        
+        # Fallback to the first allowed tenant for the user, or empty recordset
+        user_tenant_ids = self.user.tenant_ids
+        if user_tenant_ids:
+             return user_tenant_ids[0].with_env(self)
+        return self['res.tenant'].browse().with_env(self)
 
     @functools.cached_property
     def tenants(self) -> BaseModel:
         """Return a recordset of the enabled tenants by the user.
 
-        If not specified in the context(`allowed_tenant_ids`),
+        If not specified in the context(`allowed_tenant_id`),
         fallback on current user tenants.
 
-        :raise AccessError: invalid or unauthorized `allowed_tenant_ids` context key content.
+        :raise AccessError: invalid or unauthorized `allowed_tenant_id` context key content.
         :return: current tenants (default=`self.user.tenant_ids`), with the current environment
         :rtype: :class:`res.tenant recordset<~odoo.addons.base.models.res_tenant.Tenant>`
 
@@ -333,19 +338,19 @@ class Environment(Mapping[str, "BaseModel"]):
             even if the current user doesn't have access to
             the targeted tenant.
         """
-        tenant_ids = self.context.get('allowed_tenant_ids', [])
+        tenant_id = self.context.get('allowed_tenant_id')
         user_tenant_ids = self.user._get_tenant_ids()
-        if tenant_ids:
+        if tenant_id:
             if not self.su:
-                if set(tenant_ids) - set(user_tenant_ids):
-                    raise AccessError(self._("Access to unauthorized or invalid tenants."))
-            return self['res.tenant'].browse(tenant_ids)
+                if tenant_id not in user_tenant_ids:
+                    raise AccessError(self._("Access to unauthorized or invalid tenant."))
+            return self['res.tenant'].browse(tenant_id)
         # By setting the default tenants to all user tenants instead of the main one
         # we save a lot of potential trouble in all "out of context" calls, such as
         # /mail/redirect or /web/image, etc. And it is not unsafe because the user does
         # have access to these other tenants. The risk of exposing foreign records
         # (wrt to the context) is low because all normal RPCs will have a proper
-        # allowed_tenant_ids.
+        # allowed_tenant_id.
         return self['res.tenant'].browse(user_tenant_ids)
 
     @functools.cached_property

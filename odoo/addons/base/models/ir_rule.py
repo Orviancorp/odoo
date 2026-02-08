@@ -77,7 +77,7 @@ class IrRule(models.Model):
 
     def _compute_domain_keys(self):
         """ Return the list of context keys to use for caching ``_compute_domain``. """
-        return ['allowed_company_ids']
+        return ['allowed_company_ids', 'allowed_tenant_id']
 
     def _get_failing(self, for_records, mode='read'):
         """ Returns the rules for the mode for the current user which fail on
