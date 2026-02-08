@@ -389,6 +389,10 @@ class ResUsers(models.Model):
                     if self.id != SUPERUSER_ID and allowed_tenant_id not in self.tenant_ids.ids:
                          _logger.warning("User %s denied access to tenant %s", self.login, allowed_tenant_id)
                          raise AccessDenied(_("You do not have access to this tenant."))
+                    _logger.info("User %s logged into tenant ID %s", self.login, allowed_tenant_id)
+                elif self.id != SUPERUSER_ID:
+                    _logger.warning("User %s denied access. No tenant resolved.", self.login)
+                    raise AccessDenied(_("Access restricted to Superuser when no valid Tenant is resolved."))
 
                 return {
                     'uid': self.env.user.id,
@@ -403,6 +407,10 @@ class ResUsers(models.Model):
                     if self.id != SUPERUSER_ID and allowed_tenant_id not in self.tenant_ids.ids:
                          _logger.warning("User %s denied access to tenant %s (API Key)", self.login, allowed_tenant_id)
                          raise AccessDenied(_("You do not have access to this tenant."))
+                    _logger.info("User %s logged into tenant ID %s (API Key)", self.login, allowed_tenant_id)
+                elif self.id != SUPERUSER_ID:
+                    _logger.warning("User %s denied access (API Key). No tenant resolved.", self.login)
+                    raise AccessDenied(_("Access restricted to Superuser when no valid Tenant is resolved."))
                 
                 return {
                     'uid': self.env.user.id,
