@@ -81,10 +81,7 @@
                                     <i class="fa fa-fw me-1 fa-building text-primary" title="Company"/>
                                     <field name="company_id" class="w-100" context="{'user_preference': 0}" placeholder="Company"/>
                                 </div>
-                                <div class="d-flex align-items-baseline w-100" groups="base.group_multi_company">
-                                    <i class="fa fa-fw me-1 fa-building-o text-primary" title="Tenant"/>
-                                    <field name="tenant_id" class="w-100" context="{'user_preference': 0}" placeholder="Tenant"/>
-                                </div>
+
                             </div>
                         </div>
                         <group name="access_groups" invisible="id &gt; 0">
@@ -165,7 +162,7 @@
                                     <field string="Companies" name="company_ids" invisible="companies_count &lt;= 1" widget="many2many_tags" options="{'no_create': True, 'color_field': 'color'}"/>
                                     <field string="Default Company" name="company_id" invisible="companies_count &lt;= 1" context="{'user_preference': 0}"/>
                                     <field string="Tenants" name="tenant_ids" invisible="tenants_count &lt;= 1" widget="many2many_tags" options="{'no_create': True}"/>
-                                    <field string="Default Tenant" name="tenant_id" invisible="tenants_count &lt;= 1" context="{'user_preference': 0}"/>
+
                                 </group>
                                 <field name="group_ids" widget="res_user_group_ids" nolabel="1" colspan="2" groups="base.group_no_one"/>
                                 <field name="group_ids" widget="res_user_group_ids" nolabel="1" colspan="2" groups="!base.group_no_one" invisible="share"/>
@@ -261,7 +258,7 @@
                     <field name="lang" optional="hide"/>
                     <field name="login_date" readonly="1" optional="hide"/>
                     <field name="role" widget="badge"/>
-                    <field name="tenant_id" optional="hide"/>
+
                 </list>
             </field>
         </record>
