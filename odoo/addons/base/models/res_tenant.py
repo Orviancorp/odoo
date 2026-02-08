@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import NameOID
 from odoo import api, fields, models, _
+from odoo.http import request
 from odoo.exceptions import ValidationError, UserError
 
 _logger = logging.getLogger(__name__)
@@ -562,3 +563,16 @@ class ResTenant(models.Model):
                 'sticky': False,
             }
         }
+
+
+class IrHttp(models.AbstractModel):
+    _inherit = 'ir.http'
+
+    @classmethod
+    def _pre_dispatch(cls, rule, args):
+        host = request.httprequest.host.split(':')[0]
+        tenant = request.env['res.tenant'].sudo().search([('full_domain', '=', host)], limit=1)
+        if tenant:
+            request.update_context(allowed_tenant_id=tenant.id)
+        
+        super()._pre_dispatch(rule, args)

@@ -385,6 +385,11 @@ class ResUsers(models.Model):
                     request.session.session_token = new_token
 
             if valid:
+                if (allowed_tenant_id := self.env.context.get('allowed_tenant_id')):
+                    if self.id != SUPERUSER_ID and allowed_tenant_id not in self.tenant_ids.ids:
+                         _logger.warning("User %s denied access to tenant %s", self.login, allowed_tenant_id)
+                         raise AccessDenied(_("You do not have access to this tenant."))
+
                 return {
                     'uid': self.env.user.id,
                     'auth_method': 'password',
@@ -394,6 +399,11 @@ class ResUsers(models.Model):
         if not interactive:
             # 'rpc' scope does not really exist, we basically require a global key (scope NULL)
             if self.env['res.users.apikeys']._check_credentials(scope='rpc', key=credential['password']) == self.env.uid:
+                if (allowed_tenant_id := self.env.context.get('allowed_tenant_id')):
+                    if self.id != SUPERUSER_ID and allowed_tenant_id not in self.tenant_ids.ids:
+                         _logger.warning("User %s denied access to tenant %s (API Key)", self.login, allowed_tenant_id)
+                         raise AccessDenied(_("You do not have access to this tenant."))
+                
                 return {
                     'uid': self.env.user.id,
                     'auth_method': 'apikey',
