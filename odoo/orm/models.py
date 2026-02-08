@@ -66,6 +66,7 @@ from .fields import Field, determine
 from .fields_misc import Id
 from .fields_temporal import Date, Datetime
 from .fields_textual import Char
+from .fields_relational import Many2one
 
 from .identifiers import NewId
 from .utils import (
@@ -474,6 +475,12 @@ class BaseModel(metaclass=MetaModel):
         string='Display Name',
         compute='_compute_display_name',
         search='_search_display_name',
+    )
+    tenant_id = Many2one(
+        'res.tenant', string='Tenant',
+        index=True,
+        ondelete='restrict',
+        default=lambda self: self.env.tenant,
     )
 
     def _valid_field_parameter(self, field, name):
