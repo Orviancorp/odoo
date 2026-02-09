@@ -34,6 +34,7 @@ class ResCountry(models.Model):
     _description = 'Country'
     _order = 'name, id'
     _rec_names_search = ['name', 'code']
+    _tenant = False
 
     name = fields.Char(
         string='Country Name', required=True, translate=True)
@@ -200,6 +201,7 @@ class ResCountryState(models.Model):
     _description = "Country state"
     _order = 'code, id'
     _rec_names_search = ['name', 'code']
+    _tenant = False
 
     country_id = fields.Many2one('res.country', string='Country', required=True, index=True)
     name = fields.Char(string='State Name', required=True,

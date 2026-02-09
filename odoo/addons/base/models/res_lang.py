@@ -51,6 +51,7 @@ class ResLang(models.Model):
     _description = "Languages"
     _order = "active desc,name"
     _allow_sudo_commands = False
+    _tenant = False
 
     _disallowed_datetime_patterns = list(tools.misc.DATETIME_FORMATS_MAP)
     _disallowed_datetime_patterns.remove('%y') # this one is in fact allowed, just not good practice

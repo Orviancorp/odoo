@@ -41,6 +41,8 @@ class ResTenant(models.Model):
     # Hierarchy
     parent_id = fields.Many2one('res.tenant', string='Parent Tenant', index=True, ondelete='cascade')
     child_ids = fields.One2many('res.tenant', 'parent_id', string='Child Tenants')
+    user_ids = fields.One2many('res.users', 'tenant_id', string='Users')
+    company_ids = fields.One2many('res.company', 'tenant_id', string='Companies')
     parent_path = fields.Char(index=True)
 
     # Identity / Domain
@@ -144,6 +146,21 @@ class ResTenant(models.Model):
                 
                 # Also inherit base_domain if parent set
                 tenant.base_domain = tenant.parent_id.base_domain
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        tenants = super().create(vals_list)
+        
+        # Universal Multi-Tenancy: Automatic Company Creation
+        Company = self.env['res.company'].sudo()
+        for tenant in tenants:
+            # Create a company for the new tenant
+            # Ensure context is bound to the new tenant so related records (journals, etc.) get correct tenant_id
+            Company.with_context(allowed_tenant_id=tenant.id).create({
+                'name': tenant.name,
+                'tenant_id': tenant.id,
+            })
+        return tenants
 
     @api.depends('subdomain', 'parent_id.full_subdomain')
     def _compute_full_subdomain(self):

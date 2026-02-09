@@ -217,6 +217,7 @@ class MetaModel(type):
     _name: str
     _register: bool  # need to define on each Model, default: True
     _log_access: bool  # when defined, add update log columns
+    _tenant: bool = True  # when defined, add tenant_id column (default True)
     _module: str | None
     _abstract: bool
     _auto: bool
@@ -291,6 +292,7 @@ class MetaModel(type):
                 add_default('write_date', Datetime(
                     string='Last Updated on', readonly=True))
 
+            if attrs.get('_tenant', self._auto):
                 # Universal Multi-Tenancy
                 from .fields_relational import Many2one  # noqa: PLC0415
                 add_default('tenant_id', Many2one(
@@ -301,8 +303,9 @@ class MetaModel(type):
                 ))
 
 # special columns automatically created by the ORM
-LOG_ACCESS_COLUMNS = ['create_uid', 'create_date', 'write_uid', 'write_date', 'tenant_id']
-MAGIC_COLUMNS = ['id'] + LOG_ACCESS_COLUMNS
+TENANT_COLUMNS = ['tenant_id']
+LOG_ACCESS_COLUMNS = ['create_uid', 'create_date', 'write_uid', 'write_date']
+MAGIC_COLUMNS = ['id'] + LOG_ACCESS_COLUMNS + TENANT_COLUMNS
 
 # valid SQL aggregation functions
 READ_GROUP_AGGREGATE = {
@@ -3965,11 +3968,15 @@ class BaseModel(metaclass=MetaModel):
         """
 
         IrModelData = self.env['ir.model.data'].sudo()
+        COLUMNS = []
         if self._log_access:
-            res = self.read(LOG_ACCESS_COLUMNS)
+            COLUMNS += LOG_ACCESS_COLUMNS
+        if self._tenant:
+            COLUMNS += TENANT_COLUMNS
+        if COLUMNS:
+            res = self.read(COLUMNS)
         else:
             res = [{'id': x} for x in self.ids]
-
 
         xml_data = defaultdict(list)
         imds = IrModelData.search_read(
@@ -4397,11 +4404,19 @@ class BaseModel(metaclass=MetaModel):
             if not (self.env.uid == SUPERUSER_ID and not self.pool.ready):
                 bad_names.update(LOG_ACCESS_COLUMNS)
 
+        if self._tenant:
+            # the superuser can set tenant fields while loading registry
+            if not (self.env.uid == SUPERUSER_ID and not self.pool.ready):
+                bad_names.update(TENANT_COLUMNS)
+
         # set magic fields
         vals = {key: val for key, val in vals.items() if key not in bad_names}
         if self._log_access:
             vals.setdefault('write_uid', self.env.uid)
             vals.setdefault('write_date', self.env.cr.now())
+
+        if self._tenant:
+            vals.setdefault('tenant_id', self.env.tenant.id)
 
         field_values = []                           # [(field, value)]
         determine_inverses = defaultdict(list)      # {inverse: fields}
@@ -4543,6 +4558,11 @@ class BaseModel(metaclass=MetaModel):
             # set magic fields (already done by write(), but not for computed fields)
             log_vals = {'write_uid': self.env.uid, 'write_date': self.env.cr.now()}
             vals_list = [(log_vals | vals) for vals in vals_list]
+
+        if self._tenant:
+            # set magic fields (already done by write(), but not for computed fields)
+            tenant_vals = {'tenant_id': self.env.tenant.id}
+            vals_list = [(tenant_vals | vals) for vals in vals_list]
 
         # determine SQL updates, grouped by set of updated fields:
         # {(col1, col2, col3): [(id, val1, val2, val3)]}
@@ -4789,6 +4809,11 @@ class BaseModel(metaclass=MetaModel):
             if not (self.env.uid == SUPERUSER_ID and not self.pool.ready):
                 bad_names.extend(LOG_ACCESS_COLUMNS)
 
+        if self._tenant:
+            # the superuser can set tenant fields while loading registry
+            if not (self.env.uid == SUPERUSER_ID and not self.pool.ready):
+                bad_names.extend(TENANT_COLUMNS)
+
         # also discard precomputed readonly fields (to force their computation)
         bad_names.extend(
             fname
@@ -4809,6 +4834,7 @@ class BaseModel(metaclass=MetaModel):
                 vals.setdefault('create_date', self.env.cr.now())
                 vals.setdefault('write_uid', self.env.uid)
                 vals.setdefault('write_date', self.env.cr.now())
+            if self._tenant:
                 vals.setdefault('tenant_id', self.env.tenant.id)
 
             result_vals_list.append(vals)
@@ -4903,7 +4929,7 @@ class BaseModel(metaclass=MetaModel):
         # (using bin_size=False to put binary values in the right place)
         records = self.browse(ids)
         inverses_update = defaultdict(list)     # {(field, value): ids}
-        common_set_vals = set(LOG_ACCESS_COLUMNS + ['id', 'parent_path'])
+        common_set_vals = set(LOG_ACCESS_COLUMNS + TENANT_COLUMNS + ['id', 'parent_path'])
         for data, record in zip(data_list, records.with_context(bin_size=False)):
             data['record'] = record
             # DLE P104: test_inherit.py, test_50_search_one2many

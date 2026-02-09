@@ -22,6 +22,7 @@ class ResCurrency(models.Model):
     _description = "Currency"
     _rec_names_search = ['name', 'full_name']
     _order = 'active desc, name'
+    _tenant = False
 
     # Note: 'code' column was removed as of v6.0, the 'name' should now hold the ISO code.
     name = fields.Char(string='Currency', size=3, required=True, help="Currency Code (ISO 4217)")
