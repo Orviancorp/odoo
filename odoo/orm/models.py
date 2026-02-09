@@ -66,7 +66,6 @@ from .fields import Field, determine
 from .fields_misc import Id
 from .fields_temporal import Date, Datetime
 from .fields_textual import Char
-from .fields_relational import Many2one
 
 from .identifiers import NewId
 from .utils import (
@@ -292,9 +291,17 @@ class MetaModel(type):
                 add_default('write_date', Datetime(
                     string='Last Updated on', readonly=True))
 
+                # Universal Multi-Tenancy
+                from .fields_relational import Many2one  # noqa: PLC0415
+                add_default('tenant_id', Many2one(
+                    'res.tenant', string='Tenant',
+                    index=True,
+                    ondelete='restrict',
+                    default=lambda self: self.env.tenant,
+                ))
 
 # special columns automatically created by the ORM
-LOG_ACCESS_COLUMNS = ['create_uid', 'create_date', 'write_uid', 'write_date']
+LOG_ACCESS_COLUMNS = ['create_uid', 'create_date', 'write_uid', 'write_date', 'tenant_id']
 MAGIC_COLUMNS = ['id'] + LOG_ACCESS_COLUMNS
 
 # valid SQL aggregation functions
@@ -475,12 +482,6 @@ class BaseModel(metaclass=MetaModel):
         string='Display Name',
         compute='_compute_display_name',
         search='_search_display_name',
-    )
-    tenant_id = Many2one(
-        'res.tenant', string='Tenant',
-        index=True,
-        ondelete='restrict',
-        default=lambda self: self.env.tenant,
     )
 
     def _valid_field_parameter(self, field, name):
@@ -4808,6 +4809,7 @@ class BaseModel(metaclass=MetaModel):
                 vals.setdefault('create_date', self.env.cr.now())
                 vals.setdefault('write_uid', self.env.uid)
                 vals.setdefault('write_date', self.env.cr.now())
+                vals.setdefault('tenant_id', self.env.tenant)
 
             result_vals_list.append(vals)
 
