@@ -4809,7 +4809,7 @@ class BaseModel(metaclass=MetaModel):
                 vals.setdefault('create_date', self.env.cr.now())
                 vals.setdefault('write_uid', self.env.uid)
                 vals.setdefault('write_date', self.env.cr.now())
-                vals.setdefault('tenant_id', self.env.tenant)
+                vals.setdefault('tenant_id', self.env.tenant.id)
 
             result_vals_list.append(vals)
 
