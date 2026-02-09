@@ -109,6 +109,10 @@
                     <th>Latest Modification Date:</th>
                     <td><t t-esc="state.writeDate"/></td>
                 </tr>
+                <tr>
+                    <th>Tenant:</th>
+                    <td><t t-esc="state.tenant"/></td>
+                </tr>
             </table>
         </Dialog>
     </t>

@@ -146,6 +146,7 @@ class GetMetadataDialog extends Component {
         this.state.lastModifiedBy = formatMany2one(metadata.write_uid && { display_name: metadata.write_uid[1] });
         this.state.createDate = formatDateTime(deserializeDateTime(metadata.create_date));
         this.state.writeDate = formatDateTime(deserializeDateTime(metadata.write_date));
+        this.state.tenant = formatMany2one(metadata.tenant_id && { display_name: metadata.tenant_id[1] });
     }
 }
 
