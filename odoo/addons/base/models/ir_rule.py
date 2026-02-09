@@ -170,6 +170,12 @@ class IrRule(models.Model):
         # combine global domains and group domains
         if group_domains:
             global_domains.append(Domain.OR(group_domains))
+
+        # Universal Multi-Tenancy: Mandatory Tenant Filter
+        if 'tenant_id' in model._fields:
+            tenant_domain = Domain(['|', ('tenant_id', '=', False), ('tenant_id', '=', self.env.tenant.id)])
+            global_domains.append(tenant_domain)
+
         return Domain.AND(global_domains).optimize(model)
 
     def _compute_domain_context_values(self):
