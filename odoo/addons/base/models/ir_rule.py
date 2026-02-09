@@ -173,7 +173,10 @@ class IrRule(models.Model):
 
         # Universal Multi-Tenancy: Mandatory Tenant Filter
         if 'tenant_id' in model._fields:
-            tenant_domain = Domain(['|', ('tenant_id', '=', False), ('tenant_id', '=', self.env.tenant.id)])
+            if self.env.su:
+                tenant_domain = Domain(['|', ('tenant_id', '=', False), ('tenant_id', '=', self.env.tenant.id)])
+            else:
+                tenant_domain = Domain([('tenant_id', '=', self.env.tenant.id)])
             global_domains.append(tenant_domain)
 
         return Domain.AND(global_domains).optimize(model)
