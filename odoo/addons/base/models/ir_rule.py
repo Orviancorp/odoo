@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 import logging
 
-from odoo import _, api, fields, models, tools
+from odoo import _, api, fields, models, tools, SUPERUSER_ID
 from odoo.exceptions import AccessError, ValidationError
 from odoo.fields import Domain
 from odoo.tools import config, SQL
@@ -174,10 +174,16 @@ class IrRule(models.Model):
         # Universal Multi-Tenancy: Mandatory Tenant Filter
         if 'tenant_id' in model._fields:
             if self.env.su:
+                # Superuser mode bypasses all tenant filters
+                pass
+            elif self.env.uid == SUPERUSER_ID:
+                # Admin user sees own tenant + global records
                 tenant_domain = Domain(['|', ('tenant_id', '=', False), ('tenant_id', '=', self.env.tenant.id)])
+                global_domains.append(tenant_domain)
             else:
+                # Regular users strictly see their own tenant
                 tenant_domain = Domain([('tenant_id', '=', self.env.tenant.id)])
-            global_domains.append(tenant_domain)
+                global_domains.append(tenant_domain)
 
         return Domain.AND(global_domains).optimize(model)
 
